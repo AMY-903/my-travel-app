@@ -439,6 +439,61 @@ computed:{itinerarySpots(){if(!this.activeTrip||!this.activeTrip.itinerary)retur
 mounted(){const r=localStorage.getItem('myTravelRoomKey_Raw'),s=localStorage.getItem('myTravelRoomKey_Safe');if(r&&s){this.roomInput=r;this.safeRoomKey=s;this.userRole=localStorage.getItem('myTravelRole')||'admin';this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;}this.applySettings();},
 watch:{trips:{handler(n){if(!this.isUpdatingFromFirebase&&this.tripRef&&this.userRole==='admin'){this.syncStatus='saving';this.tripRef.set(JSON.parse(JSON.stringify(n))).then(()=>{this.syncStatus='online';});}},deep:!0}},
 methods:{
+    // 請將這段貼在 methods: { 的正下方，encodeRoomKey(s) 的上方
+createNewTrip() {
+    // 1. 權限檢查：只有主揪 (admin) 可以新增旅程
+    if (this.userRole !== 'admin') {
+        alert('只有主揪可以新增旅程喔！');
+        return;
+    }
+
+    // 2. 建立新旅程的完整基本資料結構 (包含預設的緊急與規範資訊，不遺漏任何原有功能)
+    const newTripId = 'trip_' + Date.now();
+    const newTrip = {
+        id: newTripId,
+        name: '新旅程 (請點擊改名)',
+        startDate: '', // 預設空日期，讓使用者後續點擊設定
+        endDate: '',
+        days: [1], // 預設至少第一天
+        itinerary: { 1: [] },
+        dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
+        dynamicDocs: [],
+        emergency: { police: '110', ambulance: '119', extra: '駐日代表處請上網查詢' },
+        rules: '入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音'
+    };
+
+    // 3. 將新旅程推入公用旅程陣列中
+    this.trips.push(newTrip);
+
+    // 4. 強制同步至 Firebase 雲端
+    this.saveTripToCloud();
+
+    // 5. 初始化與這個新旅程綁定的「私人資料」(機票、VJW等，防止點進去報錯)
+    if (!this.privateData.tripDocs) {
+        this.privateData.tripDocs = {};
+    }
+    if (!this.privateData.tripDocs[newTripId]) {
+        this.privateData.tripDocs[newTripId] = {
+            flights: {
+                outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null },
+                inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null }
+            },
+            vjwImage: null
+        };
+    }
+
+    // 6. 賦予預設主題色
+    if (!this.privateData.tripThemes) {
+        this.privateData.tripThemes = {};
+    }
+    this.privateData.tripThemes[newTripId] = this.privateData.themeColor || '#6C8EBF';
+
+    // 7. 儲存私人設定至 LocalStorage
+    this.savePrivateData();
+
+    // 8. 成功提示
+    alert('✨ 新增旅程成功！請點擊新旅程的「日期」來設定出發日。');
+},
 encodeRoomKey(s){return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join('');},
 enterRoom(){const r=this.roomInput.trim();if(!r)return;this.safeRoomKey=this.encodeRoomKey(r);localStorage.setItem('myTravelRoomKey_Raw',r);localStorage.setItem('myTravelRoomKey_Safe',this.safeRoomKey);localStorage.setItem('myTravelRole',this.userRole);this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;},
 
