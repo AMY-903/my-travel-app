@@ -11,336 +11,228 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
     <style>
         :root { --theme-color: #6C8EBF; --theme-font: 'Zen Maru Gothic', 'M PLUS Rounded 1c', 'Noto Sans TC', sans-serif; }
-        body { font-family: var(--theme-font); background-color: #F8FAFC; color: #334155; }
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .tab-active { color: var(--theme-color); border-bottom: 3px solid var(--theme-color); }
+        body { font-family: var(--theme-font); background-color: #f7f9fc; color: #334155; }
+        .theme-border { border-color: var(--theme-color); }
+        .theme-bg { background-color: var(--theme-color); }
+        .theme-text { color: var(--theme-color); }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .tab-active { border-bottom: 3px solid var(--theme-color); color: var(--theme-color); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .btn-shadow { box-shadow: 0 4px 14px 0 rgba(108, 142, 191, 0.39); }
-        .trip-card-active { border: 2px solid var(--theme-color); background: #F0F7FF; }
     </style>
 </head>
-<body>
-    <div id="app" class="max-w-md mx-auto min-h-screen pb-20 relative">
+<body class="bg-slate-50 min-h-screen">
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-xl relative pb-20 overflow-x-hidden">
         
-        <div v-if="!isLoggedIn" class="p-8 pt-20 flex flex-col items-center">
-            <div class="w-24 h-24 bg-blue-100 rounded-3xl flex items-center justify-center mb-6">
-                <span class="text-4xl">✈️</span>
+        <div v-if="!isLoggedIn" class="p-8 pt-20 border-t-8 theme-border">
+            <div class="mb-10 text-center">
+                <h1 class="text-3xl font-black text-gray-800 mb-2">輸入通關密碼🔑</h1>
+                <p class="text-gray-400 font-bold uppercase tracking-widest text-xs">開啟旅行✈️</p>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">旅遊雲端保險箱</h1>
-            <p class="text-gray-500 mb-8 text-center">輸入專屬房號，開啟你的同步旅程</p>
             
-            <div class="w-full space-y-4">
-                <input v-model="roomInput" type="text" placeholder="輸入房號 (例如: HAO2024)" 
-                       class="w-full px-5 py-4 rounded-2xl border-2 border-gray-100 focus:border-blue-400 outline-none transition-all text-center text-xl font-bold tracking-widest">
-                <button @click="enterRoom" class="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-lg btn-shadow active:scale-95 transition-all">
-                    進入旅程空間
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 ml-1 uppercase">身分選擇 ROLE</label>
+                    <select v-model="userRole" class="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold text-gray-600 outline-none appearance-none shadow-inner">
+                        <option value="member">我是旅伴 (僅查看)</option>
+                        <option value="admin">我是主揪 (可編輯)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 mb-2 ml-1 uppercase">專屬房號 ROOM ID</label>
+                    <input v-model="roomInput" type="text" placeholder="例如: HAO2025" 
+                           class="w-full p-4 rounded-2xl bg-gray-50 border-none font-bold text-gray-700 outline-none shadow-inner tracking-widest text-center">
+                </div>
+                <button @click="enterRoom" class="w-full py-5 theme-bg text-white rounded-3xl font-black text-lg shadow-lg active:scale-95 transition-all">
+                    進入空間
                 </button>
             </div>
         </div>
 
         <div v-else>
-            <div class="p-4 flex justify-between items-center bg-white sticky top-0 z-50 shadow-sm">
+            <div class="p-4 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-md z-50 border-b">
                 <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full" :class="syncStatus === 'online' ? 'bg-green-500' : 'bg-yellow-500'"></div>
-                    <span class="text-sm font-medium text-gray-500">{{ syncStatus === 'online' ? '已同步雲端' : '儲存中...' }}</span>
+                    <div class="w-2 h-2 rounded-full" :class="syncStatus==='online'?'bg-green-500':'bg-amber-500 animate-pulse'"></div>
+                    <span class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{{ syncStatus === 'online' ? 'Cloud Synced' : 'Syncing...' }}</span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600">{{ userRole === 'admin' ? '主揪模式' : '成員模式' }}</span>
-                    <button @click="logoutRoom" class="text-gray-400">🚪</button>
-                </div>
+                <button @click="logoutRoom" class="text-xs font-bold text-gray-300 hover:text-red-400 transition-colors">LOGOUT 🚪</button>
             </div>
 
             <div v-if="!activeTrip" class="p-6">
-                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-                    <span class="text-2xl">🗺️</span> 我的所有旅程
-                </h2>
-
+                <h2 class="text-2xl font-black text-gray-800 mb-8">旅程保險箱 🗃️</h2>
+                
                 <div class="space-y-4">
-                    <div v-for="trip in trips" :key="trip.id" class="relative group">
-                        <div class="w-full flex items-center gap-2 mb-3">
-                            <button @click="activeTrip = trip; currentDay = trip.days[0]" 
-                                    class="flex-grow text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center"
-                                    :class="activeTrip && activeTrip.id === trip.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-200 bg-white shadow-sm'">
-                                <div>
-                                    <span class="font-bold text-gray-700">{{ trip.name }}</span>
-                                    <p class="text-xs text-gray-400 mt-1">{{ trip.startDate || '未設定日期' }}</p>
-                                </div>
-                                <span class="text-gray-300">❯</span>
-                            </button>
-                            
-                            <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip.id)" 
-                                    class="p-4 text-red-300 hover:text-red-500 transition-colors">
-                                🗑️
-                            </button>
-                        </div>
+                    <div v-for="trip in trips" :key="trip.id" class="flex gap-2 items-center">
+                        <button @click="activeTrip = trip; currentDay = trip.days[0]" 
+                                class="flex-grow text-left p-6 rounded-3xl border-2 transition-all flex justify-between items-center group"
+                                :class="activeTrip && activeTrip.id === trip.id ? 'theme-border bg-blue-50' : 'border-gray-50 bg-gray-50 hover:border-gray-200'">
+                            <div>
+                                <h3 class="font-black text-gray-700">{{ trip.name }}</h3>
+                                <p class="text-[10px] text-gray-400 font-bold mt-1 uppercase">{{ trip.startDate || 'Set Date' }}</p>
+                            </div>
+                            <span class="text-gray-300 group-hover:translate-x-1 transition-transform">❯</span>
+                        </button>
+                        <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip.id)" class="p-4 text-gray-200 hover:text-red-400 transition-colors">🗑️</button>
                     </div>
 
                     <button v-if="userRole === 'admin'" @click="createNewTrip" 
-                            class="w-full py-6 bg-blue-50 bg-opacity-50 rounded-xl border-dashed border-2 border-blue-400 active:scale-95 transition-all group hover:bg-blue-100">
-                        <span class="text-blue-500 font-bold flex items-center justify-center gap-2">
-                            <span class="text-xl">+</span> 新增同步旅程
-                        </span>
+                            class="w-full py-6 border-4 border-dashed border-gray-100 rounded-3xl text-gray-300 font-black hover:border-blue-200 hover:text-blue-300 transition-all">
+                        + NEW SYNC TRIP
                     </button>
                 </div>
             </div>
 
             <div v-else>
-                <div class="px-4 py-2 bg-white flex items-center justify-between border-b">
-                    <button @click="activeTrip = null" class="text-blue-500 font-bold flex items-center">
-                        ❮ 返回清單
+                <div class="px-6 py-4 flex items-center gap-4">
+                    <button @click="activeTrip = null" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400">❮</button>
+                    <h2 @click="editTripName(activeTrip)" class="text-xl font-black text-gray-800 cursor-pointer">{{ activeTrip.name }} ✏️</h2>
+                </div>
+
+                <div class="flex border-b sticky top-[61px] bg-white z-40">
+                    <button v-for="tab in [['itinerary','行程'], ['docs','憑證'], ['info','資訊']]" 
+                            @click="activeTab = tab[0]" 
+                            class="flex-1 py-4 text-xs font-black transition-all"
+                            :class="activeTab === tab[0] ? 'tab-active' : 'text-gray-300'"
+                            :style="activeTab === tab[0] ? { color: getTripThemeColor(activeTrip.id), borderColor: getTripThemeColor(activeTrip.id) } : {}">
+                        {{ tab[1] }}
                     </button>
-                    <h3 @click="editTripName(activeTrip)" class="font-bold text-gray-800 cursor-pointer">{{ activeTrip.name }} ✏️</h3>
-                    <div class="w-10"></div>
                 </div>
 
-                <div class="flex bg-white shadow-sm sticky top-14 z-40">
-                    <button @click="activeTab = 'itinerary'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'itinerary' ? 'tab-active' : 'text-gray-400'">行程規劃</button>
-                    <button @click="activeTab = 'docs'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'docs' ? 'tab-active' : 'text-gray-400'">機票/憑證</button>
-                    <button @click="activeTab = 'info'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'info' ? 'tab-active' : 'text-gray-400'">實用資訊</button>
-                </div>
-
-                <div v-if="activeTab === 'itinerary'" class="p-4">
-                    <div class="flex overflow-x-auto gap-3 mb-6 pb-2 hide-scrollbar">
-                        <button v-for="day in activeTrip.days" :key="day" 
-                                @click="currentDay = day"
-                                class="flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2"
-                                :class="currentDay === day ? 'bg-blue-500 border-blue-500 text-white btn-shadow' : 'bg-white border-gray-100 text-gray-500'">
-                            <span class="text-xs opacity-80">DAY</span>
-                            <span class="text-xl font-bold">{{ day }}</span>
+                <div v-if="activeTab === 'itinerary'" class="p-6">
+                    <div class="flex gap-3 overflow-x-auto hide-scrollbar mb-8 pb-2">
+                        <button v-for="day in activeTrip.days" @click="currentDay = day"
+                                class="flex-shrink-0 w-14 h-20 rounded-2xl flex flex-col items-center justify-center transition-all"
+                                :class="currentDay === day ? 'text-white shadow-lg shadow-blue-100' : 'bg-gray-50 text-gray-300'"
+                                :style="currentDay === day ? { backgroundColor: getTripThemeColor(activeTrip.id) } : {}">
+                            <span class="text-[8px] font-black uppercase opacity-60">Day</span>
+                            <span class="text-xl font-black">{{ day }}</span>
                         </button>
-                        <button v-if="userRole === 'admin'" @click="addDay" class="flex-shrink-0 w-16 h-20 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
-                            +
-                        </button>
+                        <button v-if="userRole === 'admin'" @click="addDay" class="flex-shrink-0 w-14 h-20 rounded-2xl border-2 border-dashed border-gray-100 flex items-center justify-center text-gray-300">+</button>
                     </div>
 
-                    <div class="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-50">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-xs font-bold text-gray-400 tracking-widest uppercase">今日備忘錄</span>
-                            <button v-if="userRole === 'admin'" @click="toggleDayHeaderEdit" class="text-xs text-blue-500">
-                                {{ (activeTrip.dailyHeaders[currentDay] && activeTrip.dailyHeaders[currentDay].isEditing) ? '儲存' : '編輯備註' }}
-                            </button>
+                    <div class="mb-8 p-5 rounded-3xl bg-gray-50 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full" :style="{ backgroundColor: getTripThemeColor(activeTrip.id) }"></div>
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-[10px] font-black text-gray-300 uppercase tracking-widest">Today's Note</span>
+                            <button v-if="userRole === 'admin'" @click="toggleDayHeaderEdit" class="text-[10px] font-black text-blue-400">EDIT</button>
                         </div>
-                        
                         <div v-if="activeTrip.dailyHeaders[currentDay]">
-                            <div v-if="activeTrip.dailyHeaders[currentDay].isEditing" class="space-y-3">
-                                <input v-model="activeTrip.dailyHeaders[currentDay].wear" placeholder="建議穿著 (例: 發熱衣+厚外套)" class="w-full p-2 text-sm border-b outline-none">
-                                <input v-model="activeTrip.dailyHeaders[currentDay].snow" placeholder="天氣/雪況 (例: 大雪 ❄️)" class="w-full p-2 text-sm border-b outline-none">
+                            <div v-if="activeTrip.dailyHeaders[currentDay].isEditing" class="space-y-2">
+                                <input v-model="activeTrip.dailyHeaders[currentDay].wear" placeholder="🧥 穿著建議" class="w-full bg-transparent border-b border-gray-200 py-1 text-sm outline-none">
+                                <input v-model="activeTrip.dailyHeaders[currentDay].snow" placeholder="❄️ 雪況/天氣" class="w-full bg-transparent border-b border-gray-200 py-1 text-sm outline-none">
                             </div>
-                            <div v-else class="flex gap-4">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-lg">🧥</span>
-                                    <span class="text-sm font-medium">{{ activeTrip.dailyHeaders[currentDay].wear || '未填寫' }}</span>
-                                </div>
-                                <div class="flex items-center gap-2 border-l pl-4">
-                                    <span class="text-lg">❄️</span>
-                                    <span class="text-sm font-medium">{{ activeTrip.dailyHeaders[currentDay].snow || '未填寫' }}</span>
-                                </div>
+                            <div v-else class="flex gap-6">
+                                <div class="flex items-center gap-2"><span class="text-lg">🧥</span><span class="text-sm font-bold text-gray-600">{{ activeTrip.dailyHeaders[currentDay].wear || '---' }}</span></div>
+                                <div class="flex items-center gap-2 border-l pl-6"><span class="text-lg">❄️</span><span class="text-sm font-bold text-gray-600">{{ activeTrip.dailyHeaders[currentDay].snow || '---' }}</span></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="space-y-6 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
-                        <div v-for="(item, idx) in activeTrip.itinerary[currentDay]" :key="idx" class="relative pl-12">
-                            <div class="absolute left-0 w-10 flex flex-col items-center">
-                                <div class="w-4 h-4 rounded-full border-4 border-white shadow-sm" :style="{ backgroundColor: 'var(--theme-color)' }"></div>
-                            </div>
-                            
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 relative group">
-                                <div class="flex justify-between items-start mb-1">
-                                    <span class="text-xs font-bold text-blue-500">{{ item.time }}</span>
-                                    <button v-if="userRole === 'admin'" @click="removeItem(idx)" class="text-gray-300 opacity-0 group-hover:opacity-100 transition-all">✕</button>
-                                </div>
-                                <h4 class="font-bold text-gray-800 mb-2">{{ item.location }}</h4>
-                                <p v-if="item.note" class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mb-2">{{ item.note }}</p>
-                                <div v-if="item.transport" class="flex items-center gap-1 text-[10px] text-gray-400">
-                                    <span>🚌</span> {{ item.transport }}
-                                </div>
+                    <div class="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-50">
+                        <div v-for="(item, idx) in activeTrip.itinerary[currentDay]" :key="idx" class="relative pl-10 group">
+                            <div class="absolute left-0 w-6 h-6 rounded-full border-4 border-white shadow-sm transition-transform group-hover:scale-125" :style="{ backgroundColor: getTripThemeColor(activeTrip.id) }"></div>
+                            <div class="bg-white p-5 rounded-3xl border border-gray-50 shadow-sm relative">
+                                <button v-if="userRole === 'admin'" @click="removeItem(idx)" class="absolute top-4 right-4 text-gray-200 hover:text-red-400 transition-colors text-xs">✕</button>
+                                <p class="text-[10px] font-black mb-1" :style="{ color: getTripThemeColor(activeTrip.id) }">{{ item.time }}</p>
+                                <h4 class="font-black text-gray-700 mb-2 text-lg">{{ item.location }}</h4>
+                                <p v-if="item.note" class="text-xs text-gray-400 leading-relaxed">{{ item.note }}</p>
+                                <div v-if="item.transport" class="mt-3 inline-flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg text-[9px] font-bold text-gray-400 uppercase">🚌 {{ item.transport }}</div>
                             </div>
                         </div>
+                    </div>
 
-                        <div v-if="!activeTrip.itinerary[currentDay] || activeTrip.itinerary[currentDay].length === 0" class="py-10 text-center text-gray-300 text-sm">
-                            尚未安排行程
-                        </div>
-
-                        <div v-if="userRole === 'admin'" class="space-y-4 pt-4">
-                            <div class="bg-gray-50 p-4 rounded-2xl border-2 border-dashed border-gray-200">
-                                <p class="text-xs font-bold text-gray-400 mb-3 text-center">新增行程節點</p>
-                                <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <input v-model="newItem.time" placeholder="時間 (09:00)" class="p-2 text-xs rounded-lg border-none outline-none shadow-sm">
-                                    <input v-model="newItem.location" placeholder="地點名稱" class="p-2 text-xs rounded-lg border-none outline-none shadow-sm">
-                                </div>
-                                <input v-model="newItem.note" placeholder="備註/細節" class="w-full p-2 text-xs rounded-lg border-none outline-none shadow-sm mb-2">
-                                <input v-model="newItem.transport" placeholder="交通方式" class="w-full p-2 text-xs rounded-lg border-none outline-none shadow-sm mb-3">
-                                <button @click="addItem" class="w-full py-2 bg-white text-blue-500 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-all">加入列表</button>
+                    <div v-if="userRole === 'admin'" class="mt-12 space-y-4">
+                        <div class="p-6 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200">
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <input v-model="newItem.time" placeholder="時間" class="p-3 rounded-2xl border-none text-sm shadow-sm outline-none">
+                                <input v-model="newItem.location" placeholder="地點" class="p-3 rounded-2xl border-none text-sm shadow-sm outline-none">
                             </div>
-                            
-                            <div class="bg-blue-50 p-4 rounded-2xl">
-                                <p class="text-xs font-bold text-blue-400 mb-2">從試算表批次匯入</p>
-                                <textarea v-model="pastedCsvData" placeholder="貼上 CSV 內容..." class="w-full h-20 p-2 text-[10px] rounded-lg border-none outline-none shadow-inner mb-2 bg-white/50"></textarea>
-                                <button @click="importFromCsv" class="w-full py-2 bg-blue-500 text-white rounded-lg text-xs font-bold">匯入行程</button>
+                            <input v-model="newItem.note" placeholder="備註內容" class="w-full p-3 rounded-2xl border-none text-sm shadow-sm outline-none mb-3">
+                            <input v-model="newItem.transport" placeholder="交通方式" class="w-full p-3 rounded-2xl border-none text-sm shadow-sm outline-none mb-4">
+                            <button @click="addItem" class="w-full py-4 bg-white rounded-2xl font-black text-xs shadow-sm" :style="{ color: getTripThemeColor(activeTrip.id) }">ADD TO LIST</button>
+                        </div>
+                        <div class="p-6 bg-blue-50/50 rounded-[2rem]">
+                            <p class="text-[10px] font-black text-blue-300 mb-3 uppercase tracking-widest text-center">Batch Import (CSV)</p>
+                            <textarea v-model="pastedCsvData" placeholder="貼上 CSV 內容..." class="w-full h-24 p-4 rounded-2xl border-none bg-white/60 text-[10px] outline-none mb-3"></textarea>
+                            <button @click="importFromCsv" class="w-full py-3 bg-blue-400 text-white rounded-2xl font-black text-xs shadow-md">IMPORT DATA</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="activeTab === 'docs'" class="p-6 space-y-8">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 ml-2"><span class="text-xl">🛫</span><h4 class="font-black text-gray-800">DEPARTURE</h4></div>
+                        <div class="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm space-y-6">
+                            <div class="grid grid-cols-2 gap-6 border-b border-gray-50 pb-6">
+                                <div><p class="text-[9px] font-black text-gray-300 uppercase mb-1">Flight No.</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.flightNo" @change="savePrivateData" class="font-black text-gray-700 outline-none w-full"></div>
+                                <div><p class="text-[9px] font-black text-gray-300 uppercase mb-1">Booking Ref</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.bookingRef" @change="savePrivateData" class="font-black text-blue-500 outline-none w-full uppercase"></div>
+                            </div>
+                            <div class="flex justify-between items-center px-2">
+                                <div class="text-center"><input v-model="getTripDoc(activeTrip.id).flights.outbound.depAirport" @change="savePrivateData" class="text-2xl font-black text-gray-800 w-20 text-center outline-none"><input v-model="getTripDoc(activeTrip.id).flights.outbound.depTime" @change="savePrivateData" class="text-[10px] font-bold text-gray-300 w-full text-center outline-none"></div>
+                                <div class="flex-grow flex flex-col items-center px-4"><div class="w-full h-[2px] bg-gray-50 relative"><span class="absolute -top-3 left-1/2 -translate-x-1/2 text-xs">✈️</span></div></div>
+                                <div class="text-center"><input v-model="getTripDoc(activeTrip.id).flights.outbound.arrAirport" @change="savePrivateData" class="text-2xl font-black text-gray-800 w-20 text-center outline-none"><input v-model="getTripDoc(activeTrip.id).flights.outbound.arrTime" @change="savePrivateData" class="text-[10px] font-bold text-gray-300 w-full text-center outline-none"></div>
+                            </div>
+                            <div class="relative aspect-[16/9] bg-gray-50 rounded-2xl overflow-hidden border-2 border-dashed border-gray-100 flex items-center justify-center">
+                                <img v-if="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" :src="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" class="w-full h-full object-contain">
+                                <span v-else class="text-[10px] font-black text-gray-300 uppercase">Upload E-Ticket</span>
+                                <input type="file" @change="uploadFlightImage($event, 'outbound')" class="absolute inset-0 opacity-0 cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 ml-2"><span class="text-xl">🛂</span><h4 class="font-black text-gray-800">VISIT JAPAN WEB</h4></div>
+                        <div class="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col items-center">
+                            <div class="relative w-56 h-56 bg-gray-50 rounded-3xl overflow-hidden border-2 border-dashed border-gray-100 flex items-center justify-center mb-4">
+                                <img v-if="getTripDoc(activeTrip.id).vjwImage" :src="getTripDoc(activeTrip.id).vjwImage" class="w-full h-full object-contain">
+                                <span v-else class="text-[10px] font-black text-gray-300 uppercase">Upload QR Code</span>
+                                <input type="file" @change="uploadVjwImage" class="absolute inset-0 opacity-0 cursor-pointer">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div v-if="activeTab === 'docs'" class="p-6">
-                    <div class="space-y-8">
-                        <div class="doc-card">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-xl">🛫</span>
-                                <h4 class="font-bold text-gray-700">去程航班資訊</h4>
-                            </div>
-                            <div v-if="getTripDoc(activeTrip.id).flights.outbound" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 space-y-4">
-                                <div class="grid grid-cols-2 gap-4 border-b pb-4">
-                                    <div><p class="text-[10px] text-gray-400">航班號碼</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.flightNo" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-gray-700 outline-none w-full"></div>
-                                    <div><p class="text-[10px] text-gray-400">訂位代號</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.bookingRef" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-blue-500 outline-none w-full uppercase"></div>
-                                </div>
-                                <div class="flex justify-between items-center py-2">
-                                    <div class="text-center">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.depAirport" @change="savePrivateData" placeholder="TPE" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.depTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
-                                    </div>
-                                    <div class="flex-grow flex flex-col items-center px-4">
-                                        <div class="w-full h-[1px] bg-gray-100 relative">
-                                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">✈️</span>
-                                        </div>
-                                    </div>
-                                    <div class="text-center">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.arrAirport" @change="savePrivateData" placeholder="NRT" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.arrTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
-                                    </div>
-                                </div>
-                                <div class="pt-4 space-y-3">
-                                    <p class="text-[10px] font-bold text-gray-300 uppercase tracking-widest">電子機票截圖</p>
-                                    <div class="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center">
-                                        <img v-if="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" :src="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" class="w-full h-full object-contain">
-                                        <span v-else class="text-xs text-gray-300">尚未上傳</span>
-                                        <input type="file" @change="uploadFlightImage($event, 'outbound')" class="absolute inset-0 opacity-0 cursor-pointer">
-                                    </div>
-                                </div>
-                            </div>
+                <div v-if="activeTab === 'info'" class="p-6 space-y-8">
+                    <section>
+                        <h4 class="text-[10px] font-black text-red-400 uppercase tracking-[0.3em] mb-4 ml-2">Emergency</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-white p-5 rounded-3xl border border-gray-50 shadow-sm"><p class="text-[9px] font-black text-gray-300 uppercase mb-1">Police</p><input v-model="activeTrip.emergency.police" @change="saveTripToCloud" class="font-black text-gray-700 w-full outline-none"></div>
+                            <div class="bg-white p-5 rounded-3xl border border-gray-50 shadow-sm"><p class="text-[9px] font-black text-gray-300 uppercase mb-1">Ambulance</p><input v-model="activeTrip.emergency.ambulance" @change="saveTripToCloud" class="font-black text-gray-700 w-full outline-none"></div>
                         </div>
-
-                        <div class="doc-card">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-xl">🛬</span>
-                                <h4 class="font-bold text-gray-700">回程航班資訊</h4>
-                            </div>
-                            <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 space-y-4">
-                                <div class="grid grid-cols-2 gap-4 border-b pb-4">
-                                    <div><p class="text-[10px] text-gray-400">航班號碼</p><input v-model="getTripDoc(activeTrip.id).flights.inbound.flightNo" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-gray-700 outline-none w-full"></div>
-                                    <div><p class="text-[10px] text-gray-400">訂位代號</p><input v-model="getTripDoc(activeTrip.id).flights.inbound.bookingRef" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-blue-500 outline-none w-full uppercase"></div>
-                                </div>
-                                <div class="flex justify-between items-center py-2">
-                                    <div class="text-center">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.depAirport" @change="savePrivateData" placeholder="NRT" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.depTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
-                                    </div>
-                                    <div class="flex-grow flex flex-col items-center px-4">
-                                        <div class="w-full h-[1px] bg-gray-100 relative">
-                                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">✈️</span>
-                                        </div>
-                                    </div>
-                                    <div class="text-center">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.arrAirport" @change="savePrivateData" placeholder="TPE" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
-                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.arrTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
-                                    </div>
-                                </div>
-                                <div class="pt-4 space-y-3">
-                                    <p class="text-[10px] font-bold text-gray-300 uppercase tracking-widest">電子機票截圖</p>
-                                    <div class="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center">
-                                        <img v-if="getTripDoc(activeTrip.id).flights.inbound.eTicketImage" :src="getTripDoc(activeTrip.id).flights.inbound.eTicketImage" class="w-full h-full object-contain">
-                                        <span v-else class="text-xs text-gray-300">尚未上傳</span>
-                                        <input type="file" @change="uploadFlightImage($event, 'inbound')" class="absolute inset-0 opacity-0 cursor-pointer">
-                                    </div>
-                                </div>
-                            </div>
+                    </section>
+                    <section>
+                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-4 ml-2">Notes</h4>
+                        <textarea v-model="activeTrip.rules" @change="saveTripToCloud" class="w-full h-40 bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm text-sm text-gray-500 leading-relaxed outline-none resize-none"></textarea>
+                    </section>
+                    <section v-if="userRole === 'admin'">
+                        <h4 class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-4 ml-2">Theme Settings</h4>
+                        <div class="bg-white p-5 rounded-3xl border border-gray-50 shadow-sm flex items-center justify-between">
+                            <span class="text-xs font-black text-gray-500 uppercase">Pick Color</span>
+                            <input type="color" v-model="privateData.tripThemes[activeTrip.id]" @change="savePrivateData" class="w-12 h-12 rounded-xl overflow-hidden border-none p-0 cursor-pointer">
                         </div>
-
-                        <div class="doc-card">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-xl">🛂</span>
-                                <h4 class="font-bold text-gray-700">Visit Japan Web QR</h4>
-                            </div>
-                            <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 flex flex-col items-center">
-                                <div class="relative w-48 h-48 bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center mb-4">
-                                    <img v-if="getTripDoc(activeTrip.id).vjwImage" :src="getTripDoc(activeTrip.id).vjwImage" class="w-full h-full object-contain">
-                                    <span v-else class="text-xs text-gray-300 text-center px-4">點擊上傳 QR Code 截圖</span>
-                                    <input type="file" @change="uploadVjwImage" class="absolute inset-0 opacity-0 cursor-pointer">
-                                </div>
-                                <p class="text-[10px] text-gray-400">入境日本通關時使用，建議先儲存截圖</p>
-                            </div>
-                        </div>
-                    </div>
+                    </section>
                 </div>
-
-                <div v-if="activeTab === 'info'" class="p-6">
-                    <div class="space-y-6">
-                        <section>
-                            <h4 class="text-xs font-black text-red-400 uppercase tracking-[0.2em] mb-4">緊急聯絡電話</h4>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
-                                    <p class="text-[10px] text-gray-400 mb-1">警察局</p>
-                                    <input v-model="activeTrip.emergency.police" @change="saveTripToCloud" class="font-bold text-gray-700 w-full outline-none">
-                                </div>
-                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
-                                    <p class="text-[10px] text-gray-400 mb-1">救護車</p>
-                                    <input v-model="activeTrip.emergency.ambulance" @change="saveTripToCloud" class="font-bold text-gray-700 w-full outline-none">
-                                </div>
-                            </div>
-                        </section>
-
-                        <section>
-                            <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">旅遊注意事項</h4>
-                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-50">
-                                <textarea v-model="activeTrip.rules" @change="saveTripToCloud" class="w-full h-32 text-sm leading-relaxed text-gray-600 outline-none resize-none" placeholder="輸入此段旅程的注意事項..."></textarea>
-                            </div>
-                        </section>
-                        
-                        <section>
-                            <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">旅程自定義</h4>
-                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center justify-between">
-                                <span class="text-sm font-medium">主題顏色</span>
-                                <input type="color" v-model="privateData.tripThemes[activeTrip.id]" @change="savePrivateData" class="w-10 h-10 rounded-lg overflow-hidden border-none p-0 cursor-pointer">
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="activeTrip && activeTab === 'docs'" class="fixed bottom-6 right-6">
-                <label class="w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl shadow-lg cursor-pointer active:scale-90 transition-all">
-                    ➕
-                    <input type="file" @change="uploadDynamicDoc" class="hidden" multiple>
-                </label>
             </div>
         </div>
     </div>
 
     <script>
         const { createApp } = Vue;
-
         createApp({
             data() {
                 return {
                     isLoggedIn: false,
                     roomInput: '',
                     safeRoomKey: '',
-                    userRole: 'member', // 'admin' 或 'member'
+                    userRole: 'member',
                     syncStatus: 'online',
-                    trips: [], // 雲端同步的旅程列表
+                    trips: [],
                     activeTrip: null,
                     activeTab: 'itinerary',
                     currentDay: 1,
                     newItem: { time: '', location: '', note: '', transport: '' },
                     pastedCsvData: '',
-                    privateData: { // 儲存在 LocalStorage 的私密資料
-                        tripDocs: {}, // { tripId: { flights: {}, vjwImage: '' } }
-                        tripThemes: {} // { tripId: color }
-                    },
+                    privateData: { tripDocs: {}, tripThemes: {} },
                     isUpdatingFromFirebase: false,
                     tripRef: null
                 }
@@ -359,69 +251,42 @@
                 }
             },
             methods: {
-                // --- 核心修復：新增旅程 ---
+                // --- 補強功能：新增 ---
                 createNewTrip() {
-                    if (this.userRole !== 'admin') {
-                        alert('只有主揪可以新增旅程喔！');
-                        return;
-                    }
-
-                    const newTripId = 'trip_' + Date.now();
+                    if (this.userRole !== 'admin') return alert('只有主揪可以新增喔');
+                    const newId = 'trip_' + Date.now();
                     const newTrip = {
-                        id: newTripId,
-                        name: '新旅程 (點擊可改名)',
+                        id: newId,
+                        name: '新旅程 (點我改名)',
                         startDate: '',
-                        endDate: '',
                         days: [1],
                         itinerary: { 1: [] },
                         dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
-                        dynamicDocs: [],
-                        emergency: { police: '110', ambulance: '119', extra: '' },
-                        rules: '1. 入境請備妥 Visit Japan Web\n2. 護照請隨身攜帶\n3. 保持愉快心情'
+                        emergency: { police: '110', ambulance: '119' },
+                        rules: '請填寫注意事項...'
                     };
-
                     this.trips.push(newTrip);
                     this.saveTripToCloud();
-
-                    // 初始化私人資料
-                    if (!this.privateData.tripDocs) this.privateData.tripDocs = {};
-                    this.privateData.tripDocs[newTripId] = {
-                        flights: {
-                            outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null },
-                            inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null }
-                        },
-                        vjwImage: null
-                    };
-
                     if (!this.privateData.tripThemes) this.privateData.tripThemes = {};
-                    this.privateData.tripThemes[newTripId] = '#6C8EBF';
-
+                    this.privateData.tripThemes[newId] = '#6C8EBF';
                     this.savePrivateData();
-                    alert('✨ 旅程已新增！');
                 },
-
-                // --- 核心修復：刪除旅程 ---
+                // --- 補強功能：刪除 ---
                 deleteTrip(tripId) {
                     if (this.userRole !== 'admin') return;
-                    
-                    if (confirm('⚠️ 確定要刪除這個旅程嗎？\n雲端行程與私人的機票、VJW截圖將會永久移除。')) {
-                        // 移除雲端資料
+                    if (confirm('確定要刪除這趟旅程嗎？雲端資料將永久消失。')) {
                         this.trips = this.trips.filter(t => t.id !== tripId);
-                        
-                        // 清理本地私人資料
                         if (this.privateData.tripDocs) delete this.privateData.tripDocs[tripId];
                         if (this.privateData.tripThemes) delete this.privateData.tripThemes[tripId];
-
                         this.saveTripToCloud();
                         this.savePrivateData();
-                        
-                        if (this.activeTrip && this.activeTrip.id === tripId) {
-                            this.activeTrip = null;
-                        }
-                        alert('旅程已移除。');
+                        if (this.activeTrip && this.activeTrip.id === tripId) this.activeTrip = null;
                     }
                 },
-
+                // --- 原有邏輯恢復 ---
+                getTripThemeColor(tripId) {
+                    return (this.privateData.tripThemes && this.privateData.tripThemes[tripId]) || '#6C8EBF';
+                },
                 encodeRoomKey(s) {
                     return Array.from(new TextEncoder().encode(s)).map(b => b.toString(16).padStart(2, '0')).join('');
                 },
@@ -429,27 +294,18 @@
                     const r = this.roomInput.trim();
                     if (!r) return;
                     this.safeRoomKey = this.encodeRoomKey(r);
-                    
-                    // 角色判定：簡單實作，名稱包含 'ADMIN' 則為主揪
-                    this.userRole = r.toUpperCase().includes('ADMIN') ? 'admin' : 'member';
-                    
                     localStorage.setItem('myTravelRoomKey_Raw', r);
                     localStorage.setItem('myTravelRoomKey_Safe', this.safeRoomKey);
                     localStorage.setItem('myTravelRole', this.userRole);
-                    
                     this.initFirebase();
                 },
                 initFirebase() {
-                    const firebaseConfig = {
-                        databaseURL: "https://travelfirebase-5e165-default-rtdb.firebaseio.com/"
-                    };
+                    const firebaseConfig = { databaseURL: "https://travelfirebase-5e165-default-rtdb.firebaseio.com/" };
                     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                     this.tripRef = firebase.database().ref('rooms/' + this.safeRoomKey + '/trips');
-                    
                     this.tripRef.on('value', (snapshot) => {
                         this.isUpdatingFromFirebase = true;
-                        const data = snapshot.val();
-                        this.trips = data || [];
+                        this.trips = snapshot.val() || [];
                         this.isLoggedIn = true;
                         this.$nextTick(() => { this.isUpdatingFromFirebase = false; });
                     });
@@ -457,30 +313,20 @@
                 saveTripToCloud() {
                     if (this.tripRef && this.userRole === 'admin') {
                         this.syncStatus = 'saving';
-                        this.tripRef.set(JSON.parse(JSON.stringify(this.trips))).then(() => {
-                            this.syncStatus = 'online';
-                        });
+                        this.tripRef.set(JSON.parse(JSON.stringify(this.trips))).then(() => { this.syncStatus = 'online'; });
                     }
                 },
-                savePrivateData() {
-                    localStorage.setItem('myTravel_PrivateData', JSON.stringify(this.privateData));
-                },
+                savePrivateData() { localStorage.setItem('myTravel_PrivateData', JSON.stringify(this.privateData)); },
                 getTripDoc(tripId) {
                     if (!this.privateData.tripDocs[tripId]) {
                         this.privateData.tripDocs[tripId] = {
-                            flights: {
-                                outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null },
-                                inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null }
-                            },
+                            flights: { outbound: {}, inbound: {} },
                             vjwImage: null
                         };
                     }
                     return this.privateData.tripDocs[tripId];
                 },
                 toggleDayHeaderEdit() {
-                    if (!this.activeTrip.dailyHeaders[this.currentDay]) {
-                        this.activeTrip.dailyHeaders[this.currentDay] = { wear: '', snow: '', isEditing: false };
-                    }
                     const h = this.activeTrip.dailyHeaders[this.currentDay];
                     h.isEditing = !h.isEditing;
                     if (!h.isEditing) this.saveTripToCloud();
@@ -500,115 +346,60 @@
                     const file = event.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.getTripDoc(this.activeTrip.id).flights[type].eTicketImage = e.target.result;
-                        this.savePrivateData();
-                    };
+                    reader.onload = (e) => { this.getTripDoc(this.activeTrip.id).flights[type].eTicketImage = e.target.result; this.savePrivateData(); };
                     reader.readAsDataURL(file);
                 },
                 uploadVjwImage(event) {
                     const file = event.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.getTripDoc(this.activeTrip.id).vjwImage = e.target.result;
-                        this.savePrivateData();
-                    };
+                    reader.onload = (e) => { this.getTripDoc(this.activeTrip.id).vjwImage = e.target.result; this.savePrivateData(); };
                     reader.readAsDataURL(file);
-                },
-                uploadDynamicDoc(event) {
-                    const files = event.target.files;
-                    for (let file of files) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            if (!this.activeTrip.dynamicDocs) this.activeTrip.dynamicDocs = [];
-                            this.activeTrip.dynamicDocs.push({
-                                name: file.name,
-                                type: file.type,
-                                data: e.target.result
-                            });
-                            this.saveTripToCloud();
-                        };
-                        reader.readAsDataURL(file);
-                    }
                 },
                 importFromCsv() {
                     if (!this.pastedCsvData) return;
                     Papa.parse(this.pastedCsvData, {
-                        header: true,
-                        skipEmptyLines: true,
+                        header: true, skipEmptyLines: true,
                         complete: (results) => {
-                            let c = 0;
                             results.data.forEach(row => {
-                                const fk = (keys) => keys.find(k => row[k]);
-                                const dayKey = fk(['日期', '天數', 'Day', 'day']);
-                                if (dayKey) {
-                                    const d = parseInt(row[dayKey]);
+                                const fk = (ks) => ks.find(k => row[k]);
+                                const d = parseInt(row[fk(['日期', '天數', 'Day'])]);
+                                if (d) {
                                     if (!this.activeTrip.days.includes(d)) {
                                         this.activeTrip.days.push(d);
                                         this.activeTrip.itinerary[d] = [];
                                         this.activeTrip.dailyHeaders[d] = { wear: '', snow: '', isEditing: false };
                                     }
                                     this.activeTrip.itinerary[d].push({
-                                        time: row[fk(['時間', 'Time', 'time'])] || '',
-                                        location: row[fk(['地點', 'Location', '項目', '景點'])] || '未命名地點',
-                                        note: row[fk(['備註', 'Note', '內容', '說明'])] || '',
-                                        transport: row[fk(['交通', '如何前往', '交通建議', '搭乘'])] || ''
+                                        time: row[fk(['時間', 'Time'])] || '',
+                                        location: row[fk(['地點', 'Location', '項目'])] || '未命名',
+                                        note: row[fk(['備註', 'Note'])] || '',
+                                        transport: row[fk(['交通', '搭乘'])] || ''
                                     });
-                                    c++;
                                 }
                             });
-                            this.activeTrip.days.sort((a, b) => a - b);
-                            if (c === 0) alert("未找到有效行程資料");
-                            else { alert(`成功匯入 ${c} 筆行程！`); this.pastedCsvData = ''; this.saveTripToCloud(); }
+                            this.activeTrip.days.sort((a,b)=>a-b);
+                            this.saveTripToCloud();
+                            this.pastedCsvData = '';
                         }
                     });
                 },
-                logoutRoom() {
-                    localStorage.removeItem('myTravelRoomKey_Raw');
-                    localStorage.removeItem('myTravelRoomKey_Safe');
-                    localStorage.removeItem('myTravelRole');
-                    location.reload();
-                },
-                editTripName(t) {
-                    const n = prompt("修改旅程名稱:", t.name);
-                    if (n) { t.name = n; this.saveTripToCloud(); }
-                },
+                logoutRoom() { localStorage.clear(); location.reload(); },
+                editTripName(t) { const n = prompt("修改名稱", t.name); if(n){ t.name = n; this.saveTripToCloud(); } },
                 addDay() {
-                    const m = this.activeTrip.days.length > 0 ? Math.max(...this.activeTrip.days) : 0;
-                    const n = m + 1;
-                    this.activeTrip.days.push(n);
-                    this.activeTrip.itinerary[n] = [];
-                    this.activeTrip.dailyHeaders[n] = { wear: '', snow: '', isEditing: false };
-                    this.currentDay = n;
+                    const m = Math.max(...this.activeTrip.days, 0) + 1;
+                    this.activeTrip.days.push(m);
+                    this.activeTrip.itinerary[m] = [];
+                    this.activeTrip.dailyHeaders[m] = { wear: '', snow: '', isEditing: false };
                     this.saveTripToCloud();
-                },
-                removeDay() {
-                    if (this.userRole !== 'admin') return;
-                    const m = Math.max(...this.activeTrip.days);
-                    if (m <= 1) return alert("行程至少需保留一天喔！");
-                    if (confirm(`確定要刪除第 ${m} 天的所有行程嗎？`)) {
-                        this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);
-                        delete this.activeTrip.itinerary[m];
-                        delete this.activeTrip.dailyHeaders[m];
-                        this.currentDay = Math.max(...this.activeTrip.days);
-                        this.saveTripToCloud();
-                    }
                 }
             },
             mounted() {
-                const savedRaw = localStorage.getItem('myTravelRoomKey_Raw');
-                const savedSafe = localStorage.getItem('myTravelRoomKey_Safe');
-                const savedRole = localStorage.getItem('myTravelRole');
-                const savedPrivate = localStorage.getItem('myTravel_PrivateData');
-                
-                if (savedPrivate) this.privateData = JSON.parse(savedPrivate);
-                if (savedRaw && savedSafe) {
-                    this.roomInput = savedRaw;
-                    this.safeRoomKey = savedSafe;
-                    this.userRole = savedRole || 'member';
-                    this.initFirebase();
-                }
+                const p = localStorage.getItem('myTravel_PrivateData');
+                if (p) this.privateData = JSON.parse(p);
+                const r = localStorage.getItem('myTravelRoomKey_Raw');
+                const s = localStorage.getItem('myTravelRole');
+                if (r) { this.roomInput = r; this.userRole = s || 'member'; this.enterRoom(); }
             }
         }).mount('#app');
     </script>
