@@ -13,646 +13,604 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
     <style>
-        :root { --theme-color: #6C8EBF; --theme-font: 'Zen Maru Gothic'; }
-        body { font-family: var(--theme-font), sans-serif; background-color: #F7F8FA; transition: background-color 0.3s ease; }
-        .theme-text { color: var(--theme-color) !important; transition: color 0.3s ease; }
-        .theme-bg { background-color: var(--theme-color) !important; color: white !important; transition: background-color 0.3s ease; }
-        .theme-border { border-color: var(--theme-color) !important; transition: border-color 0.3s ease; }
-        .japanese-card { border-radius: 24px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); transition: transform 0.2s ease; }
-        .nav-blur { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.9); }
-        .modal-overlay { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
-        input[type="checkbox"] { accent-color: var(--theme-color); width: 1.2rem; height: 1.2rem; }
-        
-        .sync-indicator { position: fixed; top: 10px; right: 10px; z-index: 9999; font-size: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; pointer-events: none; }
-        .private-tag { background: rgba(255,255,255,0.2); color: white; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .dragging { opacity: 0.5; border: 2px dashed var(--theme-color); }
-        .drag-over { border-top: 4px solid var(--theme-color); padding-top: 10px; }
+        :root { --theme-color: #6C8EBF; --theme-font: 'Zen Maru Gothic', 'M PLUS Rounded 1c', 'Noto Sans TC', sans-serif; }
+        body { font-family: var(--theme-font); background-color: #F8FAFC; color: #334155; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .tab-active { color: var(--theme-color); border-bottom: 3px solid var(--theme-color); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .btn-shadow { box-shadow: 0 4px 14px 0 rgba(108, 142, 191, 0.39); }
+        .trip-card-active { border: 2px solid var(--theme-color); background: #F0F7FF; }
     </style>
 </head>
 <body>
-<div id="app" class="max-w-md mx-auto min-h-screen pb-24 relative">
-    
-    <div v-if="!isLoggedIn" class="p-6 flex flex-col items-center justify-center min-h-screen pb-32">
-        <div class="bg-white p-8 rounded-[40px] shadow-lg w-full max-w-sm text-center border-t-8 theme-border">
-            <h1 class="text-xl font-bold theme-text mb-2">輸入通關密碼🔑 開啟旅行✈️</h1>
-            <p class="text-gray-500 text-xs mb-6">行程將同步，<b class="text-indigo-600">記帳、航班與遊記私人獨立。</b></p>
-            <input v-model="roomInput" @keyup.enter="enterRoom" type="text" placeholder="輸入專屬中文/英文代碼..." class="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 outline-none mb-3 text-center font-bold">
-            <select v-model="userRole" class="w-full bg-blue-50 text-blue-700 p-4 rounded-xl border border-blue-100 outline-none mb-4 text-center font-bold cursor-pointer">
-                <option value="admin">👑 我是主揪 (編輯權限)</option>
-                <option value="member">🎒 我是旅伴 (唯讀權限)</option>
-            </select>
-            <button @click="enterRoom" class="w-full theme-bg py-3.5 rounded-xl font-bold shadow-md active:scale-95 transition">解鎖進入</button>
-        </div>
-    </div>
-
-    <div v-else>
-        <div class="sync-indicator shadow-md"><span>行程同步: {{ syncStatus === 'online' ? '🟢' : '🔄' }}</span> | <span v-if="userRole === 'member'">🎒 旅伴</span><span v-else>👑 主揪</span></div>
+    <div id="app" class="max-w-md mx-auto min-h-screen pb-20 relative">
         
-        <div v-if="currentView === 'home'" class="p-6">
-            <div class="flex justify-between items-center mb-6 mt-4">
-                <h1 class="text-2xl font-bold theme-text cursor-pointer hover:opacity-70" @click="editAppTitle">{{ appMainTitle }} <span v-if="userRole === 'admin'">✎</span></h1>
-                <div class="flex gap-2 items-center">
-                    <button @click="showSettingsModal = true" class="text-lg bg-gray-100 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 shadow-sm transition">⚙️</button>
-                    <button @click="logoutRoom" class="text-xs bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full font-bold hover:bg-gray-300">登出</button>
-                </div>
+        <div v-if="!isLoggedIn" class="p-8 pt-20 flex flex-col items-center">
+            <div class="w-24 h-24 bg-blue-100 rounded-3xl flex items-center justify-center mb-6">
+                <span class="text-4xl">✈️</span>
             </div>
-            <div class="space-y-4">
-                <div v-for="trip in trips" :key="trip.id" @click="openTrip(trip)" class="japanese-card bg-white p-5 flex justify-between items-center border-l-8 theme-border cursor-pointer hover:bg-gray-50 active:scale-95 transition">
-                    <div class="flex-1">
-                        <h2 class="text-xl font-bold text-gray-800">{{ trip.name }}</h2>
-                        <p class="text-gray-400 text-xs mt-1">📅 {{ trip.startDate || '未定' }} ~ {{ trip.endDate || '未定' }}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button v-if="userRole === 'admin'" @click.stop="editTripName(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">改名</button>
-                        <button v-if="userRole === 'admin'" @click.stop="openDateModalForTrip(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">日期</button>
-                        <div class="text-gray-300 pl-1 text-lg">➔</div>
-                    </div>
-                </div>
-                <button v-if="userRole === 'admin'" @click="createNewTrip" class="w-full mt-6 border-2 border-dashed theme-border theme-text py-4 rounded-3xl font-bold hover:bg-blue-50 transition">＋ 新增同步旅程</button>
-            </div>
-            <div class="mt-10 border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-bold text-gray-500 mb-3 flex items-center">🔒 我的私人資料 (記帳/遊記) 備份</h3>
-                <div class="flex gap-2">
-                    <button @click="exportPrivateData" class="flex-1 bg-gray-100 border border-gray-200 text-gray-600 py-2 rounded-xl text-xs font-bold active:scale-95 transition">📤 備份匯出</button>
-                    <label class="flex-1 theme-bg py-2 rounded-xl text-xs font-bold cursor-pointer text-center flex items-center justify-center shadow-sm">📥 檔案匯入<input type="file" class="hidden" accept=".json" @change="importPrivateData"></label>
-                </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">旅遊雲端保險箱</h1>
+            <p class="text-gray-500 mb-8 text-center">輸入專屬房號，開啟你的同步旅程</p>
+            
+            <div class="w-full space-y-4">
+                <input v-model="roomInput" type="text" placeholder="輸入房號 (例如: HAO2024)" 
+                       class="w-full px-5 py-4 rounded-2xl border-2 border-gray-100 focus:border-blue-400 outline-none transition-all text-center text-xl font-bold tracking-widest">
+                <button @click="enterRoom" class="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-lg btn-shadow active:scale-95 transition-all">
+                    進入旅程空間
+                </button>
             </div>
         </div>
 
-        <div v-if="currentView === 'detail' && activeTrip">
-            
-            <header class="p-6 bg-white rounded-b-[40px] shadow-sm relative z-50">
-                <div class="absolute top-6 right-6 z-[100] flex items-center gap-2">
-                    <button @click="showSettingsModal = true" class="text-gray-500 bg-gray-100 hover:bg-gray-200 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition active:scale-95 cursor-pointer">⚙️</button>
-                    <button @click="goBack" class="text-gray-500 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition active:scale-95 cursor-pointer">✕ 關閉</button>
+        <div v-else>
+            <div class="p-4 flex justify-between items-center bg-white sticky top-0 z-50 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full" :class="syncStatus === 'online' ? 'bg-green-500' : 'bg-yellow-500'"></div>
+                    <span class="text-sm font-medium text-gray-500">{{ syncStatus === 'online' ? '已同步雲端' : '儲存中...' }}</span>
                 </div>
-                <h1 class="text-2xl font-bold theme-text pr-28 cursor-pointer inline-block" @click="userRole === 'admin' ? editTripName(activeTrip) : null">{{ activeTrip.name }} <span v-if="userRole === 'admin'">✎</span></h1><br>
-                <p class="text-gray-400 text-sm mt-2 cursor-pointer bg-gray-50 px-2 py-1 rounded-lg font-bold inline-block" @click="userRole === 'admin' ? openDateModalForTrip(activeTrip) : null">📅 {{ activeTrip.startDate }} ~ {{ activeTrip.endDate }} <span v-if="userRole === 'admin'">✎</span></p>
-            </header>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600">{{ userRole === 'admin' ? '主揪模式' : '成員模式' }}</span>
+                    <button @click="logoutRoom" class="text-gray-400">🚪</button>
+                </div>
+            </div>
 
-            <main class="p-4">
-                <section v-if="activeTab === '行程'">
-                    
-                    <div class="flex flex-wrap gap-2 mb-4 items-center w-full">
-                        <button v-for="day in activeTrip.days" :key="day" @click="currentDay = day" :class="currentDay === day ? 'theme-bg shadow-md' : 'bg-white text-gray-500'" class="px-4 py-2 rounded-full font-bold transition flex flex-col items-center min-w-[70px]">
-                            <span>Day {{ day }}</span>
-                            <span class="text-[9px] opacity-80">{{ getDayDate(day) }}</span>
+            <div v-if="!activeTrip" class="p-6">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span class="text-2xl">🗺️</span> 我的所有旅程
+                </h2>
+
+                <div class="space-y-4">
+                    <div v-for="trip in trips" :key="trip.id" class="relative group">
+                        <div class="w-full flex items-center gap-2 mb-3">
+                            <button @click="activeTrip = trip; currentDay = trip.days[0]" 
+                                    class="flex-grow text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center"
+                                    :class="activeTrip && activeTrip.id === trip.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-200 bg-white shadow-sm'">
+                                <div>
+                                    <span class="font-bold text-gray-700">{{ trip.name }}</span>
+                                    <p class="text-xs text-gray-400 mt-1">{{ trip.startDate || '未設定日期' }}</p>
+                                </div>
+                                <span class="text-gray-300">❯</span>
+                            </button>
+                            
+                            <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip.id)" 
+                                    class="p-4 text-red-300 hover:text-red-500 transition-colors">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+
+                    <button v-if="userRole === 'admin'" @click="createNewTrip" 
+                            class="w-full py-6 bg-blue-50 bg-opacity-50 rounded-xl border-dashed border-2 border-blue-400 active:scale-95 transition-all group hover:bg-blue-100">
+                        <span class="text-blue-500 font-bold flex items-center justify-center gap-2">
+                            <span class="text-xl">+</span> 新增同步旅程
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div v-else>
+                <div class="px-4 py-2 bg-white flex items-center justify-between border-b">
+                    <button @click="activeTrip = null" class="text-blue-500 font-bold flex items-center">
+                        ❮ 返回清單
+                    </button>
+                    <h3 @click="editTripName(activeTrip)" class="font-bold text-gray-800 cursor-pointer">{{ activeTrip.name }} ✏️</h3>
+                    <div class="w-10"></div>
+                </div>
+
+                <div class="flex bg-white shadow-sm sticky top-14 z-40">
+                    <button @click="activeTab = 'itinerary'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'itinerary' ? 'tab-active' : 'text-gray-400'">行程規劃</button>
+                    <button @click="activeTab = 'docs'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'docs' ? 'tab-active' : 'text-gray-400'">機票/憑證</button>
+                    <button @click="activeTab = 'info'" class="flex-1 py-4 text-sm font-bold transition-all" :class="activeTab === 'info' ? 'tab-active' : 'text-gray-400'">實用資訊</button>
+                </div>
+
+                <div v-if="activeTab === 'itinerary'" class="p-4">
+                    <div class="flex overflow-x-auto gap-3 mb-6 pb-2 hide-scrollbar">
+                        <button v-for="day in activeTrip.days" :key="day" 
+                                @click="currentDay = day"
+                                class="flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2"
+                                :class="currentDay === day ? 'bg-blue-500 border-blue-500 text-white btn-shadow' : 'bg-white border-gray-100 text-gray-500'">
+                            <span class="text-xs opacity-80">DAY</span>
+                            <span class="text-xl font-bold">{{ day }}</span>
                         </button>
-                        <div v-if="userRole === 'admin'" class="flex gap-2">
-                            <button @click="addDay" class="w-10 h-10 rounded-full bg-gray-200 text-gray-600 text-lg font-bold flex items-center justify-center shadow-sm active:scale-95 transition">＋</button>
-                            <button @click="removeDay" class="w-10 h-10 rounded-full bg-red-100 text-red-500 text-lg font-bold flex items-center justify-center shadow-sm active:scale-95 transition">－</button>
-                        </div>
+                        <button v-if="userRole === 'admin'" @click="addDay" class="flex-shrink-0 w-16 h-20 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
+                            +
+                        </button>
                     </div>
-                    
-                    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4 relative group">
-                        <div v-if="!activeTrip.dailyHeaders[currentDay].isEditing">
-                            <button v-if="userRole === 'admin'" @click="activeTrip.dailyHeaders[currentDay].isEditing = true" class="absolute top-2 right-2 text-xs theme-text font-bold bg-white px-2 py-1 rounded shadow-sm">✎ 編輯</button>
-                            <p class="text-sm text-gray-700">👕 <span class="font-bold">穿著建議：</span>{{ activeTrip.dailyHeaders[currentDay].wear || '未設定' }}</p>
-                            <p class="text-sm text-gray-700 mt-1">☁️ <span class="font-bold">天氣預報：</span>{{ activeTrip.dailyHeaders[currentDay].snow || '點擊編輯抓取天氣' }}</p>
+
+                    <div class="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-50">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-bold text-gray-400 tracking-widest uppercase">今日備忘錄</span>
+                            <button v-if="userRole === 'admin'" @click="toggleDayHeaderEdit" class="text-xs text-blue-500">
+                                {{ (activeTrip.dailyHeaders[currentDay] && activeTrip.dailyHeaders[currentDay].isEditing) ? '儲存' : '編輯備註' }}
+                            </button>
                         </div>
-                        <div v-else class="space-y-2">
-                            <div class="flex gap-2">
-                                <input v-model="autoWeatherInput" placeholder="輸入城市名(例:那霸)" class="w-1/2 bg-white p-2 rounded-lg text-xs outline-none border border-blue-200 font-bold">
-                                <button @click="autoSyncHeaderWeather(currentDay)" class="w-1/2 bg-blue-100 theme-text py-1.5 rounded-lg text-xs font-bold active:scale-95 transition">🌤️ 抓取日期預報</button>
+                        
+                        <div v-if="activeTrip.dailyHeaders[currentDay]">
+                            <div v-if="activeTrip.dailyHeaders[currentDay].isEditing" class="space-y-3">
+                                <input v-model="activeTrip.dailyHeaders[currentDay].wear" placeholder="建議穿著 (例: 發熱衣+厚外套)" class="w-full p-2 text-sm border-b outline-none">
+                                <input v-model="activeTrip.dailyHeaders[currentDay].snow" placeholder="天氣/雪況 (例: 大雪 ❄️)" class="w-full p-2 text-sm border-b outline-none">
                             </div>
-                            <input v-model="activeTrip.dailyHeaders[currentDay].wear" placeholder="手動建議穿著" class="w-full bg-white p-2 rounded-lg text-xs outline-none border border-blue-200 mt-2 font-bold">
-                            <button @click="activeTrip.dailyHeaders[currentDay].isEditing = false; saveTripToCloud()" class="theme-bg px-3 py-2 rounded-lg text-xs font-bold w-full mt-1 shadow-sm">儲存</button>
+                            <div v-else class="flex gap-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">🧥</span>
+                                    <span class="text-sm font-medium">{{ activeTrip.dailyHeaders[currentDay].wear || '未填寫' }}</span>
+                                </div>
+                                <div class="flex items-center gap-2 border-l pl-4">
+                                    <span class="text-lg">❄️</span>
+                                    <span class="text-sm font-medium">{{ activeTrip.dailyHeaders[currentDay].snow || '未填寫' }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div v-if="activeTrip.itinerary[currentDay] && activeTrip.itinerary[currentDay].length > 0">
-                        <div v-for="(spot, index) in activeTrip.itinerary[currentDay]" :key="spot.id || index" class="mb-4"
-                             :draggable="userRole === 'admin' ? 'true' : 'false'" @dragstart="userRole === 'admin' ? dragStart(currentDay, index, $event) : null" @dragover.prevent="userRole === 'admin' ? dragOver(index, $event) : null" @drop="userRole === 'admin' ? dragDrop(currentDay, index) : null" @dragenter.prevent :class="{ 'dragging': draggedIndex === index, 'drag-over': dragOverIndex === index }">
+
+                    <div class="space-y-6 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
+                        <div v-for="(item, idx) in activeTrip.itinerary[currentDay]" :key="idx" class="relative pl-12">
+                            <div class="absolute left-0 w-10 flex flex-col items-center">
+                                <div class="w-4 h-4 rounded-full border-4 border-white shadow-sm" :style="{ backgroundColor: 'var(--theme-color)' }"></div>
+                            </div>
                             
-                            <div v-if="index > 0 && spot.transitTime" class="flex flex-col items-center justify-center my-2 text-gray-400 text-xs">
-                                <span class="border-l-2 border-dashed border-gray-300 h-4"></span>
-                                <span class="bg-gray-100 px-2 py-0.5 rounded-full my-1 font-bold text-[10px]">{{ spot.transitMethod === '大眾運輸' ? '🚇' : '🚗' }} 約 {{ spot.transitTime }}</span>
-                                <span class="border-l-2 border-dashed border-gray-300 h-4"></span>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 relative group">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-xs font-bold text-blue-500">{{ item.time }}</span>
+                                    <button v-if="userRole === 'admin'" @click="removeItem(idx)" class="text-gray-300 opacity-0 group-hover:opacity-100 transition-all">✕</button>
+                                </div>
+                                <h4 class="font-bold text-gray-800 mb-2">{{ item.location }}</h4>
+                                <p v-if="item.note" class="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mb-2">{{ item.note }}</p>
+                                <div v-if="item.transport" class="flex items-center gap-1 text-[10px] text-gray-400">
+                                    <span>🚌</span> {{ item.transport }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="!activeTrip.itinerary[currentDay] || activeTrip.itinerary[currentDay].length === 0" class="py-10 text-center text-gray-300 text-sm">
+                            尚未安排行程
+                        </div>
+
+                        <div v-if="userRole === 'admin'" class="space-y-4 pt-4">
+                            <div class="bg-gray-50 p-4 rounded-2xl border-2 border-dashed border-gray-200">
+                                <p class="text-xs font-bold text-gray-400 mb-3 text-center">新增行程節點</p>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <input v-model="newItem.time" placeholder="時間 (09:00)" class="p-2 text-xs rounded-lg border-none outline-none shadow-sm">
+                                    <input v-model="newItem.location" placeholder="地點名稱" class="p-2 text-xs rounded-lg border-none outline-none shadow-sm">
+                                </div>
+                                <input v-model="newItem.note" placeholder="備註/細節" class="w-full p-2 text-xs rounded-lg border-none outline-none shadow-sm mb-2">
+                                <input v-model="newItem.transport" placeholder="交通方式" class="w-full p-2 text-xs rounded-lg border-none outline-none shadow-sm mb-3">
+                                <button @click="addItem" class="w-full py-2 bg-white text-blue-500 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-all">加入列表</button>
                             </div>
                             
-                            <div class="japanese-card bg-white p-5 relative border-l-8 theme-border" :class="{'cursor-move hover:shadow-md': userRole === 'admin'}">
-                                <div class="absolute top-4 right-4 flex gap-3" v-if="userRole === 'admin'">
-                                    <button @click="editSpotInit(currentDay, index)" class="text-gray-300 theme-text font-bold transition text-xs">✎</button>
-                                    <button @click="deleteSpot(index)" class="text-gray-300 hover:text-red-500 font-bold transition">✕</button>
+                            <div class="bg-blue-50 p-4 rounded-2xl">
+                                <p class="text-xs font-bold text-blue-400 mb-2">從試算表批次匯入</p>
+                                <textarea v-model="pastedCsvData" placeholder="貼上 CSV 內容..." class="w-full h-20 p-2 text-[10px] rounded-lg border-none outline-none shadow-inner mb-2 bg-white/50"></textarea>
+                                <button @click="importFromCsv" class="w-full py-2 bg-blue-500 text-white rounded-lg text-xs font-bold">匯入行程</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="activeTab === 'docs'" class="p-6">
+                    <div class="space-y-8">
+                        <div class="doc-card">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-xl">🛫</span>
+                                <h4 class="font-bold text-gray-700">去程航班資訊</h4>
+                            </div>
+                            <div v-if="getTripDoc(activeTrip.id).flights.outbound" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 space-y-4">
+                                <div class="grid grid-cols-2 gap-4 border-b pb-4">
+                                    <div><p class="text-[10px] text-gray-400">航班號碼</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.flightNo" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-gray-700 outline-none w-full"></div>
+                                    <div><p class="text-[10px] text-gray-400">訂位代號</p><input v-model="getTripDoc(activeTrip.id).flights.outbound.bookingRef" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-blue-500 outline-none w-full uppercase"></div>
                                 </div>
-                                
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="bg-blue-100 theme-text text-[10px] px-2 py-1 rounded font-bold">{{ spot.type }}</span>
-                                    <span class="theme-bg text-[10px] px-2 py-1 rounded font-bold shadow-sm">{{ getDayDate(currentDay) }} {{ displayTimeRange(spot) }}</span>
-                                </div>
-                                <h3 class="text-lg font-bold text-gray-800 pr-12 leading-tight">{{ spot.name }}</h3>
-                                <p class="text-gray-500 text-xs mt-1 leading-relaxed">{{ spot.desc }}</p>
-                                
-                                <div class="mt-3 space-y-1 bg-gray-50 p-3 rounded-xl text-xs" v-if="spot.photoTips || spot.parkingInfo || spot.transitSuggestion">
-                                    <p v-if="spot.photoTips" class="text-gray-600"><span class="font-bold text-pink-500">📸 拍照:</span> {{ spot.photoTips }}</p>
-                                    <p v-if="spot.parkingInfo" class="text-gray-600"><span class="font-bold text-green-600">🅿️ 資訊:</span> {{ spot.parkingInfo }}</p>
-                                    <p v-if="spot.transitSuggestion" class="text-gray-600"><span class="font-bold theme-text">🚇 搭乘:</span> {{ spot.transitSuggestion }}</p>
-                                </div>
-                                <div class="flex flex-wrap gap-1 mt-2" v-if="spot.tags && spot.tags.length > 0">
-                                    <span v-for="tag in spot.tags" :key="tag" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">#{{ tag }}</span>
-                                </div>
-                                <a :href="getMapsLink(currentDay, index)" target="_blank" class="block text-center w-full mt-4 bg-gray-50 border border-gray-100 theme-text py-2 rounded-xl text-xs font-bold transition hover:theme-bg">🗺️ 開啟導航</a>
-                                
-                                <div class="mt-3 border-t border-gray-100 pt-3">
-                                    <button @click="spot.showJournal = !spot.showJournal" class="text-[11px] font-bold theme-text flex items-center gap-1">{{ spot.showJournal ? '收起遊記' : '📝 私密遊記 / 傳照片' }}</button>
-                                    
-                                    <div v-if="spot.showJournal" class="mt-3 space-y-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="private-tag bg-gray-200 text-gray-600">🔒 他人不可見</span>
-                                            <button @click="toggleJournalEdit(spot.id)" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-bold theme-text transition">
-                                                {{ getPrivateSpotData(spot.id).isEditing ? '✅ 完成' : '✎ 編輯' }}
-                                            </button>
-                                        </div>
-                                        
-                                        <div v-if="getPrivateSpotData(spot.id).isEditing">
-                                            <textarea v-model="getPrivateSpotData(spot.id).journal" @change="savePrivateData" placeholder="只有我能看到的筆記..." class="w-full bg-white rounded-xl p-3 text-sm outline-none resize-none h-20 border border-gray-200 shadow-inner"></textarea>
-                                            <div class="flex flex-wrap gap-2 mt-2">
-                                                <div v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" class="relative w-14 h-14 rounded-lg overflow-hidden border">
-                                                    <img :src="img" class="w-full h-full object-cover">
-                                                    <button @click="getPrivateSpotData(spot.id).photos.splice(i,1);savePrivateData()" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[8px]">✕</button>
-                                                </div>
-                                                <label class="w-14 h-14 flex items-center justify-center bg-gray-50 rounded-lg border border-dashed cursor-pointer text-gray-400 text-xl hover:bg-gray-100 transition">＋<input type="file" class="hidden" accept="image/*" @change="uploadPrivatePhoto(spot.id, $event)"></label>
-                                            </div>
-                                        </div>
-                                        
-                                        <div v-else class="bg-gray-50 p-3 rounded-xl border border-gray-100 min-h-[4rem]">
-                                             <p class="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{{ getPrivateSpotData(spot.id).journal || '尚無筆記，點擊右上角編輯！' }}</p>
-                                             <div class="flex flex-wrap gap-2 mt-2" v-if="getPrivateSpotData(spot.id).photos && getPrivateSpotData(spot.id).photos.length > 0">
-                                                  <img v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" :src="img" class="w-14 h-14 rounded-lg object-cover border shadow-sm">
-                                             </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <div class="text-center">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.depAirport" @change="savePrivateData" placeholder="TPE" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.depTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
+                                    </div>
+                                    <div class="flex-grow flex flex-col items-center px-4">
+                                        <div class="w-full h-[1px] bg-gray-100 relative">
+                                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">✈️</span>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-else class="text-center text-gray-400 py-8 font-bold text-sm">這天還沒有安排行程喔！</div>
-                    
-                    <div class="flex flex-col gap-2 mt-4" v-if="userRole === 'admin'">
-                        <button @click="openNewSpotModal" class="w-full bg-white border-2 border-dashed theme-border theme-text py-3 rounded-2xl font-bold transition hover:bg-blue-50 text-sm">＋ 手動新增景點</button>
-                        <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 mt-2">
-                            <p class="text-[11px] text-blue-800 font-bold mb-2">☁️ 從 Google 試算表直接貼上匯入</p>
-                            <div class="flex items-center gap-2 mb-2">
-                                <label class="text-xs font-bold text-blue-800">預設交通：</label>
-                                <select v-model="defaultImportTransitMethod" class="flex-1 bg-white p-2 text-xs rounded-lg outline-none border border-blue-200 font-bold text-gray-700">
-                                    <option value="自行開車">🚗 自行開車</option>
-                                    <option value="大眾運輸">🚇 大眾運輸</option>
-                                </select>
-                            </div>
-                            <textarea v-model="pastedCsvData" placeholder="請在試算表將資料「複製」，在此「貼上」即可！" class="w-full bg-white p-3 text-xs rounded-lg outline-none mb-2 border border-blue-200 h-20 resize-none shadow-inner"></textarea>
-                            <button @click="importPastedData" class="w-full theme-bg py-2.5 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition">瞬間匯入行程並分天</button>
-                        </div>
-                    </div>
-                </section>
-
-                <section v-if="activeTab === '指南'" class="space-y-6">
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="japanese-card bg-red-50 p-4 border border-red-100 relative">
-                            <h3 class="font-bold text-red-500 mb-2 text-sm flex justify-between items-center">🚨 緊急求助 <button v-if="userRole==='admin'" @click="isEditingEmergency = !isEditingEmergency; if(!isEditingEmergency) saveTripToCloud()" class="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded font-bold shadow-sm active:scale-95">{{ isEditingEmergency ? '✅ 完成' : '✎ 編輯' }}</button></h3>
-                            <div v-if="isEditingEmergency" class="space-y-2">
-                                <div class="flex items-center text-[11px] font-bold text-gray-600"><span class="w-10">警察:</span><input v-model="activeTrip.emergency.police" class="w-full bg-white px-2 py-1 rounded outline-none border border-red-100"></div>
-                                <div class="flex items-center text-[11px] font-bold text-gray-600"><span class="w-10">救護:</span><input v-model="activeTrip.emergency.ambulance" class="w-full bg-white px-2 py-1 rounded outline-none border border-red-100"></div>
-                                <input v-model="activeTrip.emergency.extra" placeholder="補充備註" class="w-full bg-white px-2 py-1 rounded text-[11px] outline-none border border-red-100 font-bold text-gray-600">
-                            </div>
-                            <div v-else>
-                                <p class="text-[11px] text-gray-700 mb-1 font-bold">警察：<strong class="text-red-500 text-sm">{{ activeTrip.emergency.police }}</strong></p>
-                                <p class="text-[11px] text-gray-700 mb-1 font-bold">救護：<strong class="text-red-500 text-sm">{{ activeTrip.emergency.ambulance }}</strong></p>
-                                <p class="text-[10px] text-gray-600 mt-2 leading-tight font-bold">{{ activeTrip.emergency.extra }}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="japanese-card bg-orange-50 p-4 border border-orange-100 relative">
-                            <h3 class="font-bold text-orange-500 mb-2 text-sm flex justify-between items-center">⚠️ 規範提醒 <button v-if="userRole==='admin'" @click="isEditingRules = !isEditingRules; if(!isEditingRules) saveTripToCloud()" class="text-[10px] bg-orange-100 text-orange-600 px-2 py-1 rounded font-bold shadow-sm active:scale-95">{{ isEditingRules ? '✅ 完成' : '✎ 編輯' }}</button></h3>
-                            <textarea v-if="isEditingRules" v-model="activeTrip.rules" class="w-full bg-white rounded p-2 text-[11px] font-bold h-24 outline-none border border-orange-100 resize-none"></textarea>
-                            <div v-else class="text-[11px] font-bold text-gray-700 whitespace-pre-wrap leading-relaxed">{{ activeTrip.rules }}</div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-3"><h2 class="text-xl font-bold flex items-center theme-text"><span class="mr-2">✈️</span> 我的航班與 VJW <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人獨立</span></h2></div>
-                        
-                        <div class="japanese-card bg-white p-5 mb-4 border-l-4 theme-border">
-                            <div class="flex justify-between items-center mb-3"><h3 class="font-bold theme-text text-sm">🛫 去程 (私人)</h3><button @click="importFlightQR('outbound')" class="text-[10px] bg-gray-50 border border-gray-100 theme-text px-2 py-1 rounded hover:bg-gray-100 font-bold">QR 碼匯入</button></div>
-                            <div class="space-y-2">
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.outbound.flightNo" @change="savePrivateData" placeholder="航班號" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input v-model="privateData.tripDocs[activeTrip.id].flights.outbound.bookingRef" @change="savePrivateData" placeholder="訂位代號" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs uppercase font-bold outline-none border"></div>
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.outbound.depAirport" @change="savePrivateData" placeholder="出發地" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input type="datetime-local" v-model="privateData.tripDocs[activeTrip.id].flights.outbound.depTime" @change="savePrivateData" class="w-1/2 bg-gray-50 p-2 rounded-lg text-[10px] font-bold outline-none border"></div>
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.outbound.arrAirport" @change="savePrivateData" placeholder="目的地" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input type="datetime-local" v-model="privateData.tripDocs[activeTrip.id].flights.outbound.arrTime" @change="savePrivateData" class="w-1/2 bg-gray-50 p-2 rounded-lg text-[10px] font-bold outline-none border"></div>
-                                <div class="mt-2 pt-2 border-t">
-                                    <div v-if="privateData.tripDocs[activeTrip.id].flights.outbound.eTicketImage" class="relative">
-                                        <img :src="privateData.tripDocs[activeTrip.id].flights.outbound.eTicketImage" class="w-full rounded-xl border">
-                                        <button @click="removePrivateTripImage('outbound')" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow-md">✕</button>
+                                    <div class="text-center">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.arrAirport" @change="savePrivateData" placeholder="NRT" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.outbound.arrTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
                                     </div>
-                                    <label v-else class="flex justify-center items-center w-full h-10 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 text-[11px] font-bold text-gray-400 mt-2">＋ 上傳我的去程機票<input type="file" class="hidden" accept="image/*" @change="uploadPrivateTripImage('outbound',$event)"></label>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <div class="japanese-card bg-white p-5 mb-4 border-l-4 theme-border">
-                            <div class="flex justify-between items-center mb-3"><h3 class="font-bold theme-text text-sm">🛬 回程 (私人)</h3><button @click="importFlightQR('inbound')" class="text-[10px] bg-gray-50 border border-gray-100 theme-text px-2 py-1 rounded hover:bg-gray-100 font-bold">QR 碼匯入</button></div>
-                            <div class="space-y-2">
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.inbound.flightNo" @change="savePrivateData" placeholder="航班號" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input v-model="privateData.tripDocs[activeTrip.id].flights.inbound.bookingRef" @change="savePrivateData" placeholder="訂位代號" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs uppercase font-bold outline-none border"></div>
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.inbound.depAirport" @change="savePrivateData" placeholder="出發地" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input type="datetime-local" v-model="privateData.tripDocs[activeTrip.id].flights.inbound.depTime" @change="savePrivateData" class="w-1/2 bg-gray-50 p-2 rounded-lg text-[10px] font-bold outline-none border"></div>
-                                <div class="flex gap-2"><input v-model="privateData.tripDocs[activeTrip.id].flights.inbound.arrAirport" @change="savePrivateData" placeholder="目的地" class="w-1/2 bg-gray-50 p-2 rounded-lg text-xs font-bold outline-none border"><input type="datetime-local" v-model="privateData.tripDocs[activeTrip.id].flights.inbound.arrTime" @change="savePrivateData" class="w-1/2 bg-gray-50 p-2 rounded-lg text-[10px] font-bold outline-none border"></div>
-                                <div class="mt-2 pt-2 border-t">
-                                    <div v-if="privateData.tripDocs[activeTrip.id].flights.inbound.eTicketImage" class="relative">
-                                        <img :src="privateData.tripDocs[activeTrip.id].flights.inbound.eTicketImage" class="w-full rounded-xl border">
-                                        <button @click="removePrivateTripImage('inbound')" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow-md">✕</button>
-                                    </div>
-                                    <label v-else class="flex justify-center items-center w-full h-10 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 text-[11px] font-bold text-gray-400 mt-2">＋ 上傳我的回程機票<input type="file" class="hidden" accept="image/*" @change="uploadPrivateTripImage('inbound',$event)"></label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="japanese-card bg-white p-5 border-t-4 theme-border">
-                            <label class="text-sm font-bold theme-text block mb-2">📱 我的 Visit Japan Web (VJW)</label>
-                            <div v-if="privateData.tripDocs[activeTrip.id].vjwImage" class="relative"><img :src="privateData.tripDocs[activeTrip.id].vjwImage" class="w-full rounded-xl border"><button @click="removePrivateTripImage('vjwImage')" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow-md">✕</button></div>
-                            <label v-else class="flex justify-center items-center w-full h-16 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition text-xs font-bold text-gray-400">＋ 上傳我的入境 QR 碼<input type="file" class="hidden" accept="image/*" @change="uploadPrivateTripImage('vjwImage',$event)"></label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h2 class="text-xl font-bold mb-3 flex items-center theme-text"><span class="mr-2">📁</span> 全團公用資料 <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 同步</span></h2>
-                        <div class="japanese-card bg-white p-4">
-                            <div v-for="(doc, index) in activeTrip.dynamicDocs" :key="doc.id" class="bg-gray-50 p-3 rounded-xl relative mb-3 border">
-                                <button v-if="userRole === 'admin'" @click="removeDoc(index)" class="absolute top-2 right-2 text-red-400 hover:text-red-500 text-xs font-bold">✕</button>
-                                <input v-model="doc.name" @change="saveTripToCloud" :disabled="userRole !== 'admin'" placeholder="標題 (例：🏨 飯店訂單)" class="w-full bg-transparent text-sm font-bold outline-none mb-2 disabled:opacity-70">
-                                <input v-model="doc.link" @change="saveTripToCloud" :disabled="userRole !== 'admin'" placeholder="貼上雲端連結" class="w-full bg-white border rounded p-2 text-xs outline-none disabled:opacity-70">
-                                <a v-if="doc.link" :href="doc.link" target="_blank" class="text-blue-500 text-xs mt-2 inline-block font-bold">開啟連結 ↗</a>
-                            </div>
-                            <button v-if="userRole === 'admin'" @click="addDoc" class="w-full bg-gray-100 text-gray-600 py-3 rounded-xl text-sm font-bold hover:bg-gray-200 transition">＋ 新增全團共享資料</button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-3"><h2 class="text-xl font-bold flex items-center theme-text"><span class="mr-2">🎒</span> 打包清單 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人獨立</span></h2><button @click="addPackingCategory" class="text-xs bg-gray-50 border border-gray-100 theme-text px-2 py-1 rounded font-bold hover:bg-gray-100">＋ 新增分類</button></div>
-                        <div v-for="category in privateData.packingCategories" :key="category" class="japanese-card bg-white p-4 mb-4 border-t-4 border-gray-300 relative">
-                            <button @click="deletePackingCategory(category)" class="absolute top-4 right-4 text-gray-300 hover:text-red-400 text-xs">✕</button>
-                            <h3 class="font-bold text-gray-700 mb-2 border-b pb-2">{{ category }}</h3>
-                            <ul class="space-y-2 mt-2">
-                                <li v-for="item in getPackingItems(category)" :key="item.id" class="flex items-center justify-between">
-                                    <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" v-model="item.checked" @change="savePrivateData" class="w-4 h-4 accent-gray-500"><span :class="{'line-through text-gray-300': item.checked, 'text-gray-700 font-bold': !item.checked}" class="text-sm">{{ item.name }}</span></label>
-                                    <button @click="removePackingItem(item.id)" class="text-gray-300 text-xs hover:text-red-500 font-bold">✕</button>
-                                </li>
-                            </ul>
-                            <div class="mt-4 flex gap-2"><input type="text" :id="'input-' + category" placeholder="新增物品..." @keyup.enter="addPackingItem(category)" class="flex-1 bg-gray-50 border rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none"><button @click="addPackingItem(category)" class="bg-gray-200 px-4 py-2 rounded-xl text-sm font-bold">＋</button></div>
-                        </div>
-                    </div>
-                </section>
-
-                <section v-if="activeTab === '天氣'" class="space-y-4">
-                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-blue-50">
-                        <label class="text-sm font-bold text-gray-700 mb-2 block">選擇景點查氣象：</label>
-                        <select v-model="weatherCity" class="w-full bg-gray-50 p-3 rounded-xl text-sm outline-none mb-3 border font-bold text-gray-600">
-                            <option value="">-- 請選擇 --</option>
-                            <option v-for="spot in itinerarySpots" :key="spot" :value="spot">{{ spot }}</option>
-                        </select>
-                        <label class="text-sm font-bold text-gray-700 mb-2 block mt-2">或手動輸入地點：</label>
-                        <input v-model="weatherCity" type="text" placeholder="例：東京、沖繩" class="w-full bg-gray-50 p-3 rounded-xl text-sm outline-none mb-4 border font-bold text-gray-700">
-                        <a v-if="weatherCity" :href="'https://www.google.com/search?q=' + encodeURIComponent(weatherCity + ' 天氣')" target="_blank" class="block text-center theme-bg py-3 rounded-xl font-bold shadow-md active:scale-95 transition">🔍 在 Google 查看即時天氣</a>
-                    </div>
-                </section>
-
-                <section v-if="activeTab === '記帳'" class="space-y-4">
-                    <div class="theme-bg p-6 rounded-[30px] shadow-lg relative">
-                        <span class="private-tag">🔒 個人專屬帳本</span>
-                        <div class="absolute top-4 right-4 bg-white/20 p-2 rounded-xl text-xs flex flex-col items-end gap-1 shadow-sm">
-                            <div class="flex items-center gap-1 font-bold">
-                                <select v-model="privateData.currency" @change="savePrivateData" class="bg-transparent outline-none font-bold cursor-pointer">
-                                    <option value="JPY" class="text-black">JPY (日幣)</option><option value="KRW" class="text-black">KRW (韓元)</option><option value="USD" class="text-black">USD (美金)</option><option value="EUR" class="text-black">EUR (歐元)</option><option value="THB" class="text-black">THB (泰銖)</option>
-                                </select>
-                                <button @click="fetchRealtimeRate" class="bg-white/30 px-1.5 py-0.5 rounded hover:bg-white/50 transition">🔄 最新</button>
-                            </div>
-                            <div class="flex items-center gap-1 mt-1">1外幣 = <input type="number" step="0.001" v-model="privateData.exchangeRate" @input="savePrivateData" class="w-14 bg-transparent text-right outline-none font-bold border-b border-white/50"> 台幣</div>
-                        </div>
-                        <p class="text-xs opacity-80 mt-6 font-bold">目前篩選總計</p>
-                        <h2 class="text-4xl font-bold">{{ privateData.currency }} {{ filteredTotalForeign.toLocaleString() }}</h2>
-                        <p class="text-sm mt-1 opacity-90 font-bold border-t border-white/20 pt-2">約 NT$ {{ Math.round(filteredTotalForeign * privateData.exchangeRate).toLocaleString() }}</p>
-                        <button @click="exportExpenseToCSV" class="mt-4 bg-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition w-full text-center hover:bg-white/30">📥 匯出為通用 CSV (可匯入記帳 APP)</button>
-                    </div>
-
-                    <div class="space-y-2">
-                        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                            <button @click="expenseDateFilter = '全部'" :class="expenseDateFilter === '全部' ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">全部日期</button>
-                            <button v-for="date in uniqueExpenseDates" :key="date" @click="expenseDateFilter = date" :class="expenseDateFilter === date ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">{{ date }}</button>
-                        </div>
-                        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1 items-center">
-                            <button v-for="cat in ['全部', ...privateData.expenseCategories]" :key="cat" @click="expenseFilter = cat" :class="expenseFilter === cat ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all">{{ cat }}</button>
-                            <button @click="addExpenseCategory" class="px-3 py-1.5 rounded-full text-[11px] font-bold bg-gray-100 theme-text whitespace-nowrap">＋ 新增分類</button>
-                        </div>
-                    </div>
-
-                    <div class="japanese-card bg-white p-5 border-t-4 theme-border">
-                        <div class="flex justify-between items-center mb-3"><h3 class="font-bold text-gray-700 text-sm">{{ isEditingExpense ? '✏️ 編輯明細' : '📝 新增明細' }}</h3><button v-if="isEditingExpense" @click="cancelEditExpense" class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">取消編輯</button></div>
-                        <div class="space-y-2 mb-3">
-                            <div class="flex gap-2"><select v-model="newExpense.inout" class="w-1/4 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option>支出</option><option>收入</option></select><input type="date" v-model="newExpense.date" class="w-3/4 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
-                            <div class="flex gap-2"><select v-model="newExpense.mainCat" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option v-for="cat in privateData.expenseCategories" :key="cat">{{ cat }}</option></select><input v-model="newExpense.subCat" type="text" placeholder="子分類(選填)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
-                            <div class="flex gap-2"><select v-model="newExpense.payMethod" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option>現金</option><option>信用卡</option><option>交通卡</option><option>行動支付</option><option>其他</option></select><input v-model="newExpense.bank" type="text" placeholder="銀行/卡名(選填)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
-                            <div class="flex gap-2"><input v-model="newExpense.name" type="text" placeholder="品項名稱" class="flex-1 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><input v-model="newExpense.amount" type="text" placeholder="金額(可寫算式)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold theme-text outline-none border"></div>
-                        </div>
-                        <button @click="saveExpense" :class="isEditingExpense ? 'bg-orange-500' : 'theme-bg'" class="w-full text-white py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95 transition">{{ isEditingExpense ? '更新儲存' : '自動計算並記入帳本' }}</button>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div v-for="exp in filteredExpenses" :key="exp.id" class="japanese-card bg-white p-4">
-                            <div class="flex justify-between items-start">
-                                <div class="w-2/3">
-                                    <h4 class="font-bold text-gray-800 text-sm mb-1">{{ exp.name }} <span :class="exp.inout==='收入'?'bg-green-100 text-green-600':'bg-red-100 text-red-500'" class="text-[9px] px-1.5 py-0.5 rounded ml-1">{{exp.inout||'支出'}}</span></h4>
-                                    <p class="text-[10px] text-gray-500 font-bold mb-0.5">{{ exp.date || '無日期' }} | {{ exp.mainCat }}<span v-if="exp.subCat"> - {{exp.subCat}}</span></p>
-                                    <p class="text-[10px] text-gray-400 font-bold">💳 {{ exp.payMethod }} <span v-if="exp.bank">({{exp.bank}})</span></p>
-                                </div>
-                                <div class="w-1/3 text-right">
-                                    <p class="text-sm font-bold" :class="exp.inout==='收入'?'text-green-600':'theme-text'">{{ privateData.currency }} {{ exp.amount.toLocaleString() }}</p>
-                                    <p class="text-[10px] text-gray-400 font-bold mb-2">NT$ {{ Math.round(exp.amount * privateData.exchangeRate).toLocaleString() }}</p>
-                                    <div class="flex justify-end gap-2">
-                                        <button @click="editExpense(exp)" class="text-gray-400 hover:text-orange-500 text-[10px] font-bold bg-gray-50 px-1.5 py-1 rounded">✎</button>
-                                        <button @click="deleteExpense(exp.id)" class="text-gray-400 hover:text-red-500 text-[10px] font-bold bg-gray-50 px-1.5 py-1 rounded">✕</button>
+                                <div class="pt-4 space-y-3">
+                                    <p class="text-[10px] font-bold text-gray-300 uppercase tracking-widest">電子機票截圖</p>
+                                    <div class="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                        <img v-if="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" :src="getTripDoc(activeTrip.id).flights.outbound.eTicketImage" class="w-full h-full object-contain">
+                                        <span v-else class="text-xs text-gray-300">尚未上傳</span>
+                                        <input type="file" @change="uploadFlightImage($event, 'outbound')" class="absolute inset-0 opacity-0 cursor-pointer">
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-3 border-t border-gray-50 pt-3">
-                                <div v-if="exp.photo" class="relative inline-block w-24 h-24 rounded-lg overflow-hidden border shadow-sm"><img :src="exp.photo" class="w-full h-full object-cover"><button @click="exp.photo = null; savePrivateData()" class="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] rounded-full shadow-md">✕</button></div>
-                                <label v-else class="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg text-[10px] cursor-pointer hover:bg-gray-100 transition border border-gray-200 font-bold">📸 上傳照片<input type="file" class="hidden" accept="image/*" @change="uploadExpensePhoto(exp, $event)"></label>
+                        </div>
+
+                        <div class="doc-card">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-xl">🛬</span>
+                                <h4 class="font-bold text-gray-700">回程航班資訊</h4>
+                            </div>
+                            <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 space-y-4">
+                                <div class="grid grid-cols-2 gap-4 border-b pb-4">
+                                    <div><p class="text-[10px] text-gray-400">航班號碼</p><input v-model="getTripDoc(activeTrip.id).flights.inbound.flightNo" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-gray-700 outline-none w-full"></div>
+                                    <div><p class="text-[10px] text-gray-400">訂位代號</p><input v-model="getTripDoc(activeTrip.id).flights.inbound.bookingRef" @change="savePrivateData" placeholder="尚未輸入" class="font-bold text-blue-500 outline-none w-full uppercase"></div>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <div class="text-center">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.depAirport" @change="savePrivateData" placeholder="NRT" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.depTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
+                                    </div>
+                                    <div class="flex-grow flex flex-col items-center px-4">
+                                        <div class="w-full h-[1px] bg-gray-100 relative">
+                                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs">✈️</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-center">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.arrAirport" @change="savePrivateData" placeholder="TPE" class="text-xl font-black text-gray-800 w-16 text-center outline-none">
+                                        <input v-model="getTripDoc(activeTrip.id).flights.inbound.arrTime" @change="savePrivateData" placeholder="00:00" class="text-xs text-gray-400 block w-full text-center outline-none">
+                                    </div>
+                                </div>
+                                <div class="pt-4 space-y-3">
+                                    <p class="text-[10px] font-bold text-gray-300 uppercase tracking-widest">電子機票截圖</p>
+                                    <div class="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                        <img v-if="getTripDoc(activeTrip.id).flights.inbound.eTicketImage" :src="getTripDoc(activeTrip.id).flights.inbound.eTicketImage" class="w-full h-full object-contain">
+                                        <span v-else class="text-xs text-gray-300">尚未上傳</span>
+                                        <input type="file" @change="uploadFlightImage($event, 'inbound')" class="absolute inset-0 opacity-0 cursor-pointer">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div v-if="filteredExpenses.length === 0" class="text-center text-gray-400 py-6 text-sm font-bold">目前沒有記帳紀錄</div>
+
+                        <div class="doc-card">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-xl">🛂</span>
+                                <h4 class="font-bold text-gray-700">Visit Japan Web QR</h4>
+                            </div>
+                            <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-50 flex flex-col items-center">
+                                <div class="relative w-48 h-48 bg-gray-50 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center mb-4">
+                                    <img v-if="getTripDoc(activeTrip.id).vjwImage" :src="getTripDoc(activeTrip.id).vjwImage" class="w-full h-full object-contain">
+                                    <span v-else class="text-xs text-gray-300 text-center px-4">點擊上傳 QR Code 截圖</span>
+                                    <input type="file" @change="uploadVjwImage" class="absolute inset-0 opacity-0 cursor-pointer">
+                                </div>
+                                <p class="text-[10px] text-gray-400">入境日本通關時使用，建議先儲存截圖</p>
+                            </div>
+                        </div>
                     </div>
-                </section>
-            </main>
+                </div>
 
-            <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-sm h-16 nav-blur border border-white rounded-full shadow-2xl flex justify-around items-center px-2 z-10"><button v-for="tab in tabs" :key="tab" @click="activeTab = tab" :class="activeTab === tab ? 'theme-bg shadow-md' : 'text-gray-400 hover:text-gray-600'" class="px-4 py-2 rounded-full text-xs font-bold transition-all w-1/4 text-center">{{ tab }}</button></nav>
-        </div>
-    </div>
+                <div v-if="activeTab === 'info'" class="p-6">
+                    <div class="space-y-6">
+                        <section>
+                            <h4 class="text-xs font-black text-red-400 uppercase tracking-[0.2em] mb-4">緊急聯絡電話</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
+                                    <p class="text-[10px] text-gray-400 mb-1">警察局</p>
+                                    <input v-model="activeTrip.emergency.police" @change="saveTripToCloud" class="font-bold text-gray-700 w-full outline-none">
+                                </div>
+                                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
+                                    <p class="text-[10px] text-gray-400 mb-1">救護車</p>
+                                    <input v-model="activeTrip.emergency.ambulance" @change="saveTripToCloud" class="font-bold text-gray-700 w-full outline-none">
+                                </div>
+                            </div>
+                        </section>
 
-    <div v-if="showSettingsModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl border-t-8 theme-border">
-            <h3 class="text-xl font-bold theme-text mb-4">🎨 個人化設定 <span v-if="activeTrip" class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded ml-2">本行程專屬</span></h3>
-            <div class="mb-5">
-                <label class="text-xs font-bold block mb-2 text-gray-500">主題色選擇</label>
-                <div class="flex flex-wrap gap-3 items-center">
-                    <button v-for="color in themeColors" :key="color.hex" @click="changeThemeColor(color.hex)" class="w-10 h-10 rounded-full shadow-sm border-2 shrink-0 transition-transform" :class="getCurrentThemeColor() === color.hex ? 'scale-110 border-gray-400' : 'border-transparent'" :style="{ backgroundColor: color.hex }"></button>
-                    <label class="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer text-gray-400 font-bold bg-gray-50 overflow-hidden relative shrink-0">🎨<input type="color" :value="getCurrentThemeColor()" @input="handleColorPicker" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></label>
+                        <section>
+                            <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">旅遊注意事項</h4>
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-50">
+                                <textarea v-model="activeTrip.rules" @change="saveTripToCloud" class="w-full h-32 text-sm leading-relaxed text-gray-600 outline-none resize-none" placeholder="輸入此段旅程的注意事項..."></textarea>
+                            </div>
+                        </section>
+                        
+                        <section>
+                            <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4">旅程自定義</h4>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center justify-between">
+                                <span class="text-sm font-medium">主題顏色</span>
+                                <input type="color" v-model="privateData.tripThemes[activeTrip.id]" @change="savePrivateData" class="w-10 h-10 rounded-lg overflow-hidden border-none p-0 cursor-pointer">
+                            </div>
+                        </section>
+                    </div>
                 </div>
             </div>
-            
-            <div class="mb-5">
-                <label class="text-xs font-bold block mb-2 text-gray-500">字體大小</label>
-                <select v-model="privateData.fontSize" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200">
-                    <option value="14px">小 (Small)</option>
-                    <option value="16px">中 (Medium - 預設)</option>
-                    <option value="18px">大 (Large)</option>
-                    <option value="20px">特大 (Extra Large)</option>
-                </select>
+
+            <div v-if="activeTrip && activeTab === 'docs'" class="fixed bottom-6 right-6">
+                <label class="w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl shadow-lg cursor-pointer active:scale-90 transition-all">
+                    ➕
+                    <input type="file" @change="uploadDynamicDoc" class="hidden" multiple>
+                </label>
             </div>
-            
-            <div class="mb-6">
-                <label class="text-xs font-bold block mb-2 text-gray-500">字體風格</label>
-                <select v-model="privateData.fontFamily" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200">
-                    <option value="'Zen Maru Gothic'">圓潤日系 (Zen Maru Gothic)</option>
-                    <option value="'Noto Sans TC'">清晰現代 (Noto Sans TC)</option>
-                    <option value="'M PLUS Rounded 1c'">活潑手寫 (M PLUS Rounded)</option>
-                </select>
-            </div>
-            <button @click="showSettingsModal = false" class="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition hover:bg-gray-300">完成設定</button>
         </div>
     </div>
-    
-    <div v-if="showDateModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl"><h3 class="text-xl font-bold theme-text mb-2">選擇旅遊日期</h3><div class="space-y-4"><div><label class="text-xs font-bold block mb-1">出發日期</label><input type="date" v-model="tempStartDate" class="w-full bg-gray-100 rounded-xl p-3 outline-none font-bold text-gray-700"></div><div><label class="text-xs font-bold block mb-1">回程日期</label><input type="date" v-model="tempEndDate" class="w-full bg-gray-100 rounded-xl p-3 outline-none font-bold text-gray-700"></div></div><div class="flex gap-3 mt-6"><button @click="showDateModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-3 rounded-xl font-bold">取消</button><button @click="saveDateRange" class="w-1/2 theme-bg py-3 rounded-xl font-bold shadow-md">確定儲存</button></div></div>
-    </div>
-    
-    <div v-if="showSpotModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"><h3 class="text-xl font-bold theme-text mb-4">{{ isEditingSpot ? '編輯行程' : '新增行程' }}</h3>
-            <div class="space-y-3"><div class="flex gap-2"><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">時間 (起)</label><input v-model="newSpot.startTime" type="text" placeholder="例: 09:00" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">預計停留</label><input v-model="newSpot.stayTime" placeholder="1.5h" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">分類</label><select v-model="newSpot.type" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"><option>景點</option><option>美食</option><option>交通</option><option>住宿</option><option>購物</option></select></div></div><div><label class="text-[11px] text-gray-500 font-bold block mb-1">地點名稱</label><input v-model="newSpot.name" type="text" class="w-full bg-gray-100 rounded-xl p-2 text-sm outline-none font-bold"></div><div><label class="text-[11px] text-gray-500 font-bold block mb-1">描述 / 拍照提醒</label><textarea v-model="newSpot.desc" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none resize-none h-16 font-bold"></textarea></div><div class="border-t pt-2 mt-2"><label class="text-[11px] text-blue-500 font-bold block mb-1">🚗 交通/停車資訊：</label><div class="flex gap-2 mb-2"><select v-model="newSpot.transitMethod" class="w-1/3 bg-blue-50 text-blue-700 rounded-xl p-2 text-xs outline-none font-bold"><option>自行開車</option><option>大眾運輸</option></select><input v-model="newSpot.transitTime" type="text" placeholder="花費時間 (例: 15min)" class="w-2/3 bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><input v-if="newSpot.transitMethod === '自行開車'" v-model="newSpot.parkingInfo" type="text" placeholder="🅿️ 停車、加油..." class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"><input v-if="newSpot.transitMethod === '大眾運輸'" v-model="newSpot.transitSuggestion" type="text" placeholder="🚇 如何前往？(例：搭公車)" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div></div>
-            <div class="flex gap-3 mt-6"><button @click="showSpotModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-2 rounded-xl font-bold">取消</button><button @click="saveSpot" class="w-1/2 theme-bg py-2 rounded-xl font-bold shadow-md">儲存</button></div>
-        </div>
-    </div>
-</div>
 
-<script>
-const firebaseConfig = {apiKey:"AIzaSyBsHOCxyulG_-PdPgVC1j3gUDjcz3JG_o4",authDomain:"mytravelapp-137b7.firebaseapp.com",databaseURL:"https://mytravelapp-137b7-default-rtdb.asia-southeast1.firebasedatabase.app/",projectId:"mytravelapp-137b7",storageBucket:"mytravelapp-137b7.firebasestorage.app",messagingSenderId:"962737417227",appId:"1:962737417227:web:0981cb4312f609c39c2b0e",measurementId:"G-9MHPSLYTC5"};
-firebase.initializeApp(firebaseConfig);const db=firebase.database();const {createApp}=Vue;
-createApp({
-data(){return{isLoggedIn:!1,roomInput:'',safeRoomKey:'',userRole:'admin',syncStatus:'connecting',loginTitle:'輸入通關密碼🔑 開啟旅行✈️',appMainTitle:localStorage.getItem('HAMAR_APP_TITLE')||'日系旅遊助手',trips:[],activeTrip:null,currentView:'home',activeTab:'行程',currentDay:1,tabs:['行程','指南','天氣','記帳'],showSpotModal:!1,showDateModal:!1,showSettingsModal:!1,editingTripForDate:null,tempStartDate:'',tempEndDate:'',newSpot:{name:'',desc:'',type:'景點',startTime:'09:00',stayTime:'1.5h',transitTime:'',transitMethod:'自行開車',parkingInfo:'',transitSuggestion:''},isEditingSpot:!1,editSpotIndex:null,themeColors:[{hex:'#6C8EBF'},{hex:'#F4A7B9'},{hex:'#86A697'},{hex:'#333631'},{hex:'#E87A5D'},{hex:'#D9A62E'},{hex:'#9D89B5'},{hex:'#2B5F75'}],privateData:{themeColor:'#6C8EBF',tripThemes:{},fontFamily:"'Zen Maru Gothic'",fontSize:'16px',packingCategories:['隨身背包','托運行李','文件'],packing:[],expenseCategories:['飲食','交通','購物','住宿','其他'],expenses:[],currency:'JPY',exchangeRate:0.21,spotNotes:{},tripDocs:{}},newExpense:{inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:''},isEditingExpense:!1,editingExpenseId:null,expenseFilter:'全部',expenseDateFilter:'全部',autoWeatherInput:'',isSyncingWeather:!1,weatherCity:'',pastedCsvData:'',defaultImportTransitMethod:'自行開車',draggedDay:null,draggedIndex:null,dragOverIndex:null,isEditingEmergency:!1,isEditingRules:!1}},
-computed:{itinerarySpots(){if(!this.activeTrip||!this.activeTrip.itinerary)return[];let s=new Set();Object.values(this.activeTrip.itinerary).forEach(d=>{d.forEach(x=>{if(x.name)s.add(x.name);});});return Array.from(s);},uniqueExpenseDates(){if(!this.privateData.expenses)return[];return [...new Set(this.privateData.expenses.map(e=>e.date||'無日期'))].sort();},filteredExpenses(){if(!this.privateData.expenses)return[];return this.privateData.expenses.filter(e=>{const mC=this.expenseFilter==='全部'||e.mainCat===this.expenseFilter;const mD=this.expenseDateFilter==='全部'||(e.date||'無日期')===this.expenseDateFilter;return mC&&mD;});},filteredTotalForeign(){return this.filteredExpenses.reduce((s,e)=>s+(e.inout==='收入'?-Number(e.amount):Number(e.amount)),0);}},
-mounted(){const r=localStorage.getItem('myTravelRoomKey_Raw'),s=localStorage.getItem('myTravelRoomKey_Safe');if(r&&s){this.roomInput=r;this.safeRoomKey=s;this.userRole=localStorage.getItem('myTravelRole')||'admin';this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;}this.applySettings();},
-watch:{trips:{handler(n){if(!this.isUpdatingFromFirebase&&this.tripRef&&this.userRole==='admin'){this.syncStatus='saving';this.tripRef.set(JSON.parse(JSON.stringify(n))).then(()=>{this.syncStatus='online';});}},deep:!0}},
-methods:{
-    // 請將這段貼在 methods: { 的正下方，encodeRoomKey(s) 的上方
-createNewTrip() {
-    // 1. 權限檢查：只有主揪 (admin) 可以新增旅程
-    if (this.userRole !== 'admin') {
-        alert('只有主揪可以新增旅程喔！');
-        return;
-    }
+    <script>
+        const { createApp } = Vue;
 
-    // 2. 建立新旅程的完整基本資料結構 (包含預設的緊急與規範資訊，不遺漏任何原有功能)
-    const newTripId = 'trip_' + Date.now();
-    const newTrip = {
-        id: newTripId,
-        name: '新旅程 (請點擊改名)',
-        startDate: '', // 預設空日期，讓使用者後續點擊設定
-        endDate: '',
-        days: [1], // 預設至少第一天
-        itinerary: { 1: [] },
-        dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
-        dynamicDocs: [],
-        emergency: { police: '110', ambulance: '119', extra: '駐日代表處請上網查詢' },
-        rules: '入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音'
-    };
-
-    // 3. 將新旅程推入公用旅程陣列中
-    this.trips.push(newTrip);
-
-    // 4. 強制同步至 Firebase 雲端
-    this.saveTripToCloud();
-
-    // 5. 初始化與這個新旅程綁定的「私人資料」(機票、VJW等，防止點進去報錯)
-    if (!this.privateData.tripDocs) {
-        this.privateData.tripDocs = {};
-    }
-    if (!this.privateData.tripDocs[newTripId]) {
-        this.privateData.tripDocs[newTripId] = {
-            flights: {
-                outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null },
-                inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null }
-            },
-            vjwImage: null
-        };
-    }
-
-    // 6. 賦予預設主題色
-    if (!this.privateData.tripThemes) {
-        this.privateData.tripThemes = {};
-    }
-    this.privateData.tripThemes[newTripId] = this.privateData.themeColor || '#6C8EBF';
-
-    // 7. 儲存私人設定至 LocalStorage
-    this.savePrivateData();
-
-    // 8. 成功提示
-    alert('✨ 新增旅程成功！請點擊新旅程的「日期」來設定出發日。');
-},
-encodeRoomKey(s){return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join('');},
-enterRoom(){const r=this.roomInput.trim();if(!r)return;this.safeRoomKey=this.encodeRoomKey(r);localStorage.setItem('myTravelRoomKey_Raw',r);localStorage.setItem('myTravelRoomKey_Safe',this.safeRoomKey);localStorage.setItem('myTravelRole',this.userRole);this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;},
-
-getCurrentThemeColor() {
-    if (this.activeTrip) {
-        return (this.privateData.tripThemes && this.privateData.tripThemes[this.activeTrip.id]) ? this.privateData.tripThemes[this.activeTrip.id] : (this.privateData.themeColor || '#6C8EBF');
-    }
-    return this.privateData.themeColor || '#6C8EBF';
-},
-changeThemeColor(h){
-    if (this.activeTrip) {
-        if (!this.privateData.tripThemes) this.privateData.tripThemes = {};
-        this.privateData.tripThemes[this.activeTrip.id] = h;
-    } else {
-        this.privateData.themeColor = h;
-    }
-    this.applySettings();
-},
-handleColorPicker(e) {
-    this.changeThemeColor(e.target.value);
-},
-applySettings(){
-    const color = this.getCurrentThemeColor();
-    document.documentElement.style.setProperty('--theme-color', color);
-    document.documentElement.style.setProperty('--theme-font', this.privateData.fontFamily);
-    // 🎯 這裡會動態調整整個網頁的基準字體大小
-    document.documentElement.style.fontSize = this.privateData.fontSize || '16px'; 
-    this.savePrivateData();
-},
-
-editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("標題：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
-initFirebase(rk){this.tripRef=db.ref('travel_rooms/'+rk);this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});});},
-initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
-saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
-
-openTrip(t){
-    this.initTripDefaults(t);this.activeTrip=t;
-    if(!this.privateData.tripDocs[t.id]){
-        this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null};
-        this.savePrivateData();
-    }
-    this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0];
-    this.$nextTick(() => { this.applySettings(); });
-},
-goBack(){
-    this.currentView='home';this.activeTrip=null;
-    this.$nextTick(() => { this.applySettings(); });
-},
-
-openDateModalForTrip(t){if(this.userRole!=='admin')return;this.editingTripForDate=t;this.tempStartDate=t.startDate||'';this.tempEndDate=t.endDate||'';this.showDateModal=!0;},closeDateModal(){this.showDateModal=!1;this.editingTripForDate=null;},saveDateRange(){if(this.userRole!=='admin')return;let tt=this.editingTripForDate||this.activeTrip;tt.startDate=this.tempStartDate;tt.endDate=this.tempEndDate;if(this.tempStartDate&&this.tempEndDate){const diff=Math.ceil((new Date(this.tempEndDate)-new Date(this.tempStartDate))/86400000)+1;if(diff>0&&diff<=30){const nd=[];for(let i=1;i<=diff;i++){nd.push(i);if(!tt.itinerary[i])tt.itinerary[i]=[];if(!tt.dailyHeaders[i])tt.dailyHeaders[i]={wear:'',snow:'',isEditing:!1};}tt.days=nd;}}this.saveTripToCloud();this.showDateModal=!1;},
-getDayDate(d){if(!this.activeTrip.startDate)return '';const s=new Date(this.activeTrip.startDate);s.setDate(s.getDate()+(d-1));return (s.getMonth()+1)+'/'+s.getDate();},
-displayTimeRange(s) {if (!s.startTime) return '未設定時間';let st = String(s.startTime).trim();if (st.includes('-') || st.includes('~')) return st;let h = 0, m = 0;if (st.includes(':')) { let p = st.split(':'); h = parseInt(p[0]) || 0; m = parseInt(p[1]) || 0; } else { return st; }let stay = String(s.stayTime || '1.5h');let match = stay.match(/(\d+)\s*(h|min|分鐘|小時|分|時)/i);if (!match) return st;let val = Number(match[1]);let unit = match[2];let add = (unit.includes('h') || unit.includes('時') || unit.includes('小時')) ? val * 60 : val;let d = new Date(); d.setHours(h, m + add);return `${st} ~ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;},
-async autoSyncHeaderWeather(d){let q=this.autoWeatherInput.trim();if(!q){const s=this.activeTrip.itinerary[d];if(!s||s.length===0)return alert('請輸入城市名！');q=s[0].name;}const tD=new Date(this.activeTrip.startDate);tD.setDate(tD.getDate()+(d-1));if((tD-new Date())/(1000*60*60*24)>14){alert("🌤️ 氣象 API 僅支援未來 14 天內預報，請接近出發日再查詢！");return;}this.isSyncingWeather=!0;const map={'沖繩':'Naha','那霸':'Naha','美麗海':'Nago','東京':'Tokyo','大阪':'Osaka','京都':'Kyoto','福岡':'Fukuoka','札幌':'Sapporo','名古屋':'Nagoya'};if(map[q])q=map[q];try{const r1=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1`);const d1=await r1.json();if(!d1.results)throw new Error();const lat=d1.results[0].latitude,lon=d1.results[0].longitude;const dS=tD.toISOString().split('T')[0];const r2=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=${dS}&end_date=${dS}&timezone=auto`);const d2=await r2.json();if(d2.error)throw new Error();const maxT=d2.daily.temperature_2m_max[0],minT=d2.daily.temperature_2m_min[0],rainP=d2.daily.precipitation_probability_max[0];this.activeTrip.dailyHeaders[d].wear=maxT<0?"發熱衣+防風+防滑雪靴":maxT<10?"發熱衣+厚外套":maxT<20?"長袖+輕薄外套":maxT<28?"短袖為主":"透氣短袖+防曬";this.activeTrip.dailyHeaders[d].snow=`降雨 ${rainP}% (${minT}~${maxT}°C)`;this.saveTripToCloud();}catch(e){alert("查無天氣，請嘗試輸入英文");}finally{this.isSyncingWeather=!1;}},
-
-loadPrivateData(){
-    const l=localStorage.getItem('HAMAR_PRIVATE_'+this.safeRoomKey);
-    if(l){
-        const p=JSON.parse(l);
-        if(!p.expenseCategories)p.expenseCategories=['飲食','交通','購物','住宿','其他'];
-        if(!p.currency)p.currency='JPY';
-        if(!p.themeColor)p.themeColor='#6C8EBF';
-        if(!p.tripThemes)p.tripThemes={};
-        if(!p.fontFamily)p.fontFamily="'Zen Maru Gothic'";
-        if(!p.fontSize)p.fontSize='16px'; // 🎯 預設為中等字體
-        if(!p.tripDocs)p.tripDocs={};
-        this.privateData=p;
-    }
-    this.applySettings();
-},
-savePrivateData(){localStorage.setItem('HAMAR_PRIVATE_'+this.safeRoomKey,JSON.stringify(this.privateData));},
-exportPrivateData(){const link=document.createElement('a');link.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(this.privateData));link.download=`私人資料備份.json`;link.click();},
-importPrivateData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{this.privateData=JSON.parse(ev.target.result);this.savePrivateData();location.reload();};r.readAsText(f);},
-
-getPrivateSpotData(id){
-    if(!this.privateData.spotNotes) this.privateData.spotNotes={};
-    if(!this.privateData.spotNotes[id]) this.privateData.spotNotes[id]={journal:'', photos:[], isEditing: true}; 
-    if(this.privateData.spotNotes[id].isEditing === undefined) this.privateData.spotNotes[id].isEditing = false;
-    return this.privateData.spotNotes[id];
-},
-toggleJournalEdit(id) {
-    const data = this.getPrivateSpotData(id);
-    data.isEditing = !data.isEditing;
-    this.savePrivateData();
-},
-uploadPrivatePhoto(id,e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{this.getPrivateSpotData(id).photos.push(ev.target.result);this.savePrivateData();};r.readAsDataURL(f);},
-
-getPrivateTripData(id){return this.privateData.tripDocs[id];},uploadPrivateTripImage(p,e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{const d=this.getPrivateTripData(this.activeTrip.id);if(p==='vjwImage')d.vjwImage=ev.target.result;else d.flights[p].eTicketImage=ev.target.result;this.savePrivateData();};r.readAsDataURL(f);},removePrivateTripImage(p){const d=this.getPrivateTripData(this.activeTrip.id);if(p==='vjwImage')d.vjwImage=null;else d.flights[p].eTicketImage=null;this.savePrivateData();},importFlightQR(dir){const m=prompt(`請貼上【${dir==='outbound'?'去程':'回程'}】機票 QR Code：\n(格式: BR116|TPE|2026-02-20T09:30|CTS|2026-02-20T14:05|X7A9B)`);if(m){const p=m.split('|');if(p.length>=6){const d=this.getPrivateTripData(this.activeTrip.id);d.flights[dir].flightNo=p[0];d.flights[dir].depAirport=p[1];d.flights[dir].depTime=p[2];d.flights[dir].arrAirport=p[3];d.flights[dir].arrTime=p[4];d.flights[dir].bookingRef=p[5];this.savePrivateData();alert('機票資料匯入成功！');}}},
-getPackingItems(c){return this.privateData.packing.filter(i=>i.category===c);},addPackingCategory(){const c=prompt("新增分類名稱：");if(c){this.privateData.packingCategories.push(c);this.savePrivateData();}},deletePackingCategory(c){if(confirm("刪除此分類？")){this.privateData.packingCategories=this.privateData.packingCategories.filter(x=>x!==c);this.privateData.packing=this.privateData.packing.filter(p=>p.category!==c);this.savePrivateData();}},addPackingItem(c){const i=document.getElementById('input-'+c);if(i.value.trim()){this.privateData.packing.push({id:Date.now(),category:c,name:i.value.trim(),checked:!1});i.value='';this.savePrivateData();}},removePackingItem(id){this.privateData.packing=this.privateData.packing.filter(i=>i.id!==id);this.savePrivateData();},
-addDoc(){this.activeTrip.dynamicDocs.push({id:Date.now(),name:'',link:''});},removeDoc(i){if(confirm("確定刪除嗎？")){this.activeTrip.dynamicDocs.splice(i,1);this.saveTripToCloud();}},
-addExpenseCategory(){const c=prompt("新增專屬記帳分類：");if(c){this.privateData.expenseCategories.push(c);this.savePrivateData();}},async fetchRealtimeRate(){try{const r=await fetch(`https://api.exchangerate-api.com/v4/latest/TWD`);const d=await r.json();const rate=d.rates[this.privateData.currency];if(rate){this.privateData.exchangeRate=Number((1/rate).toFixed(4));this.savePrivateData();alert(`已更新最新匯率！`);}}catch(e){alert("網路連線失敗");}},
-saveExpense(){if(!this.newExpense.name||!this.newExpense.amount)return alert("請填寫品項與金額");try{this.newExpense.amount=parseFloat(new Function('return '+String(this.newExpense.amount).replace(/[^0-9+\-*/.()]/g,''))());}catch(e){return alert("算式格式錯誤！");}if(this.isEditingExpense){const idx=this.privateData.expenses.findIndex(e=>e.id===this.editingExpenseId);if(idx!==-1)this.privateData.expenses[idx]={...this.privateData.expenses[idx],...this.newExpense};this.isEditingExpense=!1;this.editingExpenseId=null;}else{this.privateData.expenses.push({id:Date.now(),...this.newExpense,photo:null});}this.newExpense={inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:this.activeTrip.startDate||''};this.savePrivateData();},editExpense(e){this.isEditingExpense=!0;this.editingExpenseId=e.id;this.newExpense={inout:e.inout||'支出',mainCat:e.mainCat||e.type,subCat:e.subCat||'',name:e.name,amount:e.amount,payMethod:e.payMethod||'現金',bank:e.bank||'',date:e.date||''};},cancelEditExpense(){this.isEditingExpense=!1;this.editingExpenseId=null;this.newExpense={inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:this.activeTrip.startDate||''};},deleteExpense(id){if(confirm("刪除這筆開支？")){this.privateData.expenses=this.privateData.expenses.filter(e=>e.id!==id);this.savePrivateData();}},uploadExpensePhoto(e,ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=(x)=>{e.photo=x.target.result;this.savePrivateData();};r.readAsDataURL(f);},exportExpenseToCSV(){if(this.privateData.expenses.length===0)return alert("目前沒有帳目可以匯出喔！");let c="類型,日期,主分類,子分類,品項,支付方式,銀行卡名,外幣金額,台幣金額(預估)\n";this.privateData.expenses.forEach(e=>{const t=Math.round(e.amount*this.privateData.exchangeRate);c+=`${e.inout||'支出'},${e.date||''},${e.mainCat||e.type||''},${e.subCat||''},${e.name},${e.payMethod||'現金'},${e.bank||''},${e.amount},${t}\n`;});const l=document.createElement("a");l.href=URL.createObjectURL(new Blob(["\uFEFF"+c],{type:'text/csv;charset=utf-8;'}));l.download=`旅遊記帳匯出.csv`;l.click();},
-openNewSpotModal(){if(this.userRole==='admin'){this.isEditingSpot=!1;this.newSpot={type:'景點',name:'',desc:'',startTime:'',stayTime:'1.5h',transitTime:'',transitMethod:'自行開車',parkingInfo:'',transitSuggestion:''};this.showSpotModal=!0;}},editSpotInit(d,i){if(this.userRole==='admin'){this.isEditingSpot=!0;this.editSpotIndex=i;this.newSpot=JSON.parse(JSON.stringify(this.activeTrip.itinerary[d][i]));this.showSpotModal=!0;}},saveSpot(){if(!this.newSpot.name)return;if(!this.activeTrip.itinerary[this.currentDay])this.activeTrip.itinerary[this.currentDay]=[];let tags=this.newSpot.tagsInput?this.newSpot.tagsInput.split(',').map(t=>t.trim()).filter(t=>t):[];const f={id:this.isEditingSpot?this.newSpot.id:'s'+Date.now(),...this.newSpot,tags:tags};if(this.isEditingSpot){this.activeTrip.itinerary[this.currentDay][this.editSpotIndex]=f;}else{this.activeTrip.itinerary[this.currentDay].push(f);}this.activeTrip.itinerary[this.currentDay].sort((a,b)=>(a.startTime||'').localeCompare(b.startTime||''));this.saveTripToCloud();this.showSpotModal=!1;},deleteSpot(i){if(confirm("確定刪除行程點？")){this.activeTrip.itinerary[this.currentDay].splice(i,1);this.saveTripToCloud();}},
-getMapsLink(d,i){const dest=this.activeTrip.itinerary[d][i].name;if(i===0)return `https://www.google.com/maps/search/?api=1&query=?q=......{encodeURIComponent(dest)}`;const origin=this.activeTrip.itinerary[d][i-1].name;const mode=this.activeTrip.itinerary[d][i].transitMethod==='大眾運輸'?'transit':'driving';return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=${mode}`;},dragStart(d,i,e){if(this.userRole==='admin'){this.draggedDay=d;this.draggedIndex=i;e.dataTransfer.effectAllowed='move';}},dragOver(i,e){if(this.userRole==='admin')this.dragOverIndex=i;},dragDrop(d,di){if(this.userRole==='admin'&&this.draggedDay===d&&this.draggedIndex!==di){const i=this.activeTrip.itinerary[d].splice(this.draggedIndex,1)[0];this.activeTrip.itinerary[d].splice(di,0,i);this.saveTripToCloud();}this.draggedIndex=null;this.dragOverIndex=null;},
-
-importPastedData(){
-    if(this.userRole!=='admin')return;
-    if(!this.pastedCsvData.trim())return alert("請貼上資料");
-    Papa.parse(this.pastedCsvData,{
-        delimiter:'\t',header:!0,skipEmptyLines:'greedy',
-        complete:(r)=>{
-            let c=0;
-            let md=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;
-            r.data.forEach(row=>{
-                const k=Object.keys(row);
-                const fk=(w)=>k.find(x=>w.some(y=>x.toLowerCase().includes(y)));
-                const nk=fk(['名稱','景點','name']),dk=fk(['天','day','日期']),tk=fk(['時','time','時間']);
-                if(nk&&row[nk].trim()!==''){
-                    let td=dk?parseInt(String(row[dk]).replace(/\D/g,'')):NaN;
-                    if(isNaN(td)||td<=0)td=this.currentDay;
-                    if(!this.activeTrip.days.includes(td)){
-                        for(let d=md+1;d<=td;d++){
-                            if(!this.activeTrip.days.includes(d)){
-                                this.activeTrip.days.push(d);
-                                this.activeTrip.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};
-                            }
-                        }
-                        md=Math.max(md,td);
-                    }
-                    if(!this.activeTrip.itinerary[td])this.activeTrip.itinerary[td]=[];
-                    const methodKey = fk(['方式', '大眾', '開車', 'transport']);
-                    let tMethod = this.defaultImportTransitMethod;
-                    if (methodKey) {
-                        const cellValue = String(row[methodKey]);
-                        if (cellValue.match(/大眾|公車|捷運|地鐵|火車|巴士/)) tMethod = '大眾運輸';
-                        else if (cellValue.match(/開車|自駕/)) tMethod = '自行開車';
-                    }
-                    this.activeTrip.itinerary[td].push({
-                        id:'s'+Date.now()+Math.random(),
-                        type:fk(['分類','類別'])?row[fk(['分類','類別'])]:'景點',
-                        name:row[nk].trim(),
-                        desc:fk(['描述','說明'])?row[fk(['描述','說明'])]:'',
-                        startTime:(tk&&row[tk])?String(row[tk]).trim():'09:00',
-                        stayTime:fk(['停留'])?row[fk(['停留'])]:'1.5h',
-                        tags:fk(['標籤'])?String(row[fk(['標籤'])]).split(','):[],
-                        photoTips:fk(['拍照'])?row[fk(['拍照'])]:'',
-                        parkingInfo:fk(['停車'])?row[fk(['停車'])]:'',
-                        transitTime:fk(['交通時間','交通','耗時'])?row[fk(['交通時間','交通','耗時'])]:'',
-                        transitMethod: tMethod,
-                        transitSuggestion: fk(['如何前往','交通建議','搭乘']) ? row[fk(['如何前往','交通建議','搭乘'])] : ''
-                    });
-                    c++;
+        createApp({
+            data() {
+                return {
+                    isLoggedIn: false,
+                    roomInput: '',
+                    safeRoomKey: '',
+                    userRole: 'member', // 'admin' 或 'member'
+                    syncStatus: 'online',
+                    trips: [], // 雲端同步的旅程列表
+                    activeTrip: null,
+                    activeTab: 'itinerary',
+                    currentDay: 1,
+                    newItem: { time: '', location: '', note: '', transport: '' },
+                    pastedCsvData: '',
+                    privateData: { // 儲存在 LocalStorage 的私密資料
+                        tripDocs: {}, // { tripId: { flights: {}, vjwImage: '' } }
+                        tripThemes: {} // { tripId: color }
+                    },
+                    isUpdatingFromFirebase: false,
+                    tripRef: null
                 }
-            });
-            this.activeTrip.days.sort((a,b)=>a-b);
-            if(c===0)alert("未找到行程");
-            else{alert(`匯入 ${c} 筆行程！`);this.pastedCsvData='';this.saveTripToCloud();}
-        }
-    });
-},
-logoutRoom(){
-    localStorage.removeItem('myTravelRoomKey_Raw');
-    localStorage.removeItem('myTravelRoomKey_Safe');
-    localStorage.removeItem('myTravelRole');
-    location.reload();
-},
-editTripName(t){const n=prompt("名",t.name);if(n){t.name=n;this.saveTripToCloud();}},
-addDay(){const m=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;const n=m+1;this.activeTrip.days.push(n);this.activeTrip.itinerary[n]=[];this.activeTrip.dailyHeaders[n]={wear:'',snow:'',isEditing:!1};this.currentDay=n;this.saveTripToCloud();},
-removeDay(){if(this.userRole!=='admin')return;const m=Math.max(...this.activeTrip.days);if(m<=1) return alert("行程至少需保留一天喔！");const hasItinerary = this.activeTrip.itinerary[m] && this.activeTrip.itinerary[m].length > 0;const msg = hasItinerary ? `Day ${m} 裡面還有行程喔！確定要強制刪除嗎？` : `確定要刪除 Day ${m} 嗎？`;if(confirm(msg)){this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);delete this.activeTrip.itinerary[m];delete this.activeTrip.dailyHeaders[m];if(this.currentDay === m) this.currentDay = Math.max(...this.activeTrip.days);this.saveTripToCloud();}}
-}}).mount('#app')
-</script>
+            },
+            watch: {
+                trips: {
+                    handler(n) {
+                        if (!this.isUpdatingFromFirebase && this.tripRef && this.userRole === 'admin') {
+                            this.syncStatus = 'saving';
+                            this.tripRef.set(JSON.parse(JSON.stringify(n))).then(() => {
+                                this.syncStatus = 'online';
+                            });
+                        }
+                    },
+                    deep: true
+                }
+            },
+            methods: {
+                // --- 核心修復：新增旅程 ---
+                createNewTrip() {
+                    if (this.userRole !== 'admin') {
+                        alert('只有主揪可以新增旅程喔！');
+                        return;
+                    }
+
+                    const newTripId = 'trip_' + Date.now();
+                    const newTrip = {
+                        id: newTripId,
+                        name: '新旅程 (點擊可改名)',
+                        startDate: '',
+                        endDate: '',
+                        days: [1],
+                        itinerary: { 1: [] },
+                        dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
+                        dynamicDocs: [],
+                        emergency: { police: '110', ambulance: '119', extra: '' },
+                        rules: '1. 入境請備妥 Visit Japan Web\n2. 護照請隨身攜帶\n3. 保持愉快心情'
+                    };
+
+                    this.trips.push(newTrip);
+                    this.saveTripToCloud();
+
+                    // 初始化私人資料
+                    if (!this.privateData.tripDocs) this.privateData.tripDocs = {};
+                    this.privateData.tripDocs[newTripId] = {
+                        flights: {
+                            outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null },
+                            inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null }
+                        },
+                        vjwImage: null
+                    };
+
+                    if (!this.privateData.tripThemes) this.privateData.tripThemes = {};
+                    this.privateData.tripThemes[newTripId] = '#6C8EBF';
+
+                    this.savePrivateData();
+                    alert('✨ 旅程已新增！');
+                },
+
+                // --- 核心修復：刪除旅程 ---
+                deleteTrip(tripId) {
+                    if (this.userRole !== 'admin') return;
+                    
+                    if (confirm('⚠️ 確定要刪除這個旅程嗎？\n雲端行程與私人的機票、VJW截圖將會永久移除。')) {
+                        // 移除雲端資料
+                        this.trips = this.trips.filter(t => t.id !== tripId);
+                        
+                        // 清理本地私人資料
+                        if (this.privateData.tripDocs) delete this.privateData.tripDocs[tripId];
+                        if (this.privateData.tripThemes) delete this.privateData.tripThemes[tripId];
+
+                        this.saveTripToCloud();
+                        this.savePrivateData();
+                        
+                        if (this.activeTrip && this.activeTrip.id === tripId) {
+                            this.activeTrip = null;
+                        }
+                        alert('旅程已移除。');
+                    }
+                },
+
+                encodeRoomKey(s) {
+                    return Array.from(new TextEncoder().encode(s)).map(b => b.toString(16).padStart(2, '0')).join('');
+                },
+                enterRoom() {
+                    const r = this.roomInput.trim();
+                    if (!r) return;
+                    this.safeRoomKey = this.encodeRoomKey(r);
+                    
+                    // 角色判定：簡單實作，名稱包含 'ADMIN' 則為主揪
+                    this.userRole = r.toUpperCase().includes('ADMIN') ? 'admin' : 'member';
+                    
+                    localStorage.setItem('myTravelRoomKey_Raw', r);
+                    localStorage.setItem('myTravelRoomKey_Safe', this.safeRoomKey);
+                    localStorage.setItem('myTravelRole', this.userRole);
+                    
+                    this.initFirebase();
+                },
+                initFirebase() {
+                    const firebaseConfig = {
+                        databaseURL: "https://travelfirebase-5e165-default-rtdb.firebaseio.com/"
+                    };
+                    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                    this.tripRef = firebase.database().ref('rooms/' + this.safeRoomKey + '/trips');
+                    
+                    this.tripRef.on('value', (snapshot) => {
+                        this.isUpdatingFromFirebase = true;
+                        const data = snapshot.val();
+                        this.trips = data || [];
+                        this.isLoggedIn = true;
+                        this.$nextTick(() => { this.isUpdatingFromFirebase = false; });
+                    });
+                },
+                saveTripToCloud() {
+                    if (this.tripRef && this.userRole === 'admin') {
+                        this.syncStatus = 'saving';
+                        this.tripRef.set(JSON.parse(JSON.stringify(this.trips))).then(() => {
+                            this.syncStatus = 'online';
+                        });
+                    }
+                },
+                savePrivateData() {
+                    localStorage.setItem('myTravel_PrivateData', JSON.stringify(this.privateData));
+                },
+                getTripDoc(tripId) {
+                    if (!this.privateData.tripDocs[tripId]) {
+                        this.privateData.tripDocs[tripId] = {
+                            flights: {
+                                outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null },
+                                inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', eTicketImage: null }
+                            },
+                            vjwImage: null
+                        };
+                    }
+                    return this.privateData.tripDocs[tripId];
+                },
+                toggleDayHeaderEdit() {
+                    if (!this.activeTrip.dailyHeaders[this.currentDay]) {
+                        this.activeTrip.dailyHeaders[this.currentDay] = { wear: '', snow: '', isEditing: false };
+                    }
+                    const h = this.activeTrip.dailyHeaders[this.currentDay];
+                    h.isEditing = !h.isEditing;
+                    if (!h.isEditing) this.saveTripToCloud();
+                },
+                addItem() {
+                    if (!this.newItem.location) return;
+                    if (!this.activeTrip.itinerary[this.currentDay]) this.activeTrip.itinerary[this.currentDay] = [];
+                    this.activeTrip.itinerary[this.currentDay].push({ ...this.newItem });
+                    this.newItem = { time: '', location: '', note: '', transport: '' };
+                    this.saveTripToCloud();
+                },
+                removeItem(idx) {
+                    this.activeTrip.itinerary[this.currentDay].splice(idx, 1);
+                    this.saveTripToCloud();
+                },
+                uploadFlightImage(event, type) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.getTripDoc(this.activeTrip.id).flights[type].eTicketImage = e.target.result;
+                        this.savePrivateData();
+                    };
+                    reader.readAsDataURL(file);
+                },
+                uploadVjwImage(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.getTripDoc(this.activeTrip.id).vjwImage = e.target.result;
+                        this.savePrivateData();
+                    };
+                    reader.readAsDataURL(file);
+                },
+                uploadDynamicDoc(event) {
+                    const files = event.target.files;
+                    for (let file of files) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            if (!this.activeTrip.dynamicDocs) this.activeTrip.dynamicDocs = [];
+                            this.activeTrip.dynamicDocs.push({
+                                name: file.name,
+                                type: file.type,
+                                data: e.target.result
+                            });
+                            this.saveTripToCloud();
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+                importFromCsv() {
+                    if (!this.pastedCsvData) return;
+                    Papa.parse(this.pastedCsvData, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            let c = 0;
+                            results.data.forEach(row => {
+                                const fk = (keys) => keys.find(k => row[k]);
+                                const dayKey = fk(['日期', '天數', 'Day', 'day']);
+                                if (dayKey) {
+                                    const d = parseInt(row[dayKey]);
+                                    if (!this.activeTrip.days.includes(d)) {
+                                        this.activeTrip.days.push(d);
+                                        this.activeTrip.itinerary[d] = [];
+                                        this.activeTrip.dailyHeaders[d] = { wear: '', snow: '', isEditing: false };
+                                    }
+                                    this.activeTrip.itinerary[d].push({
+                                        time: row[fk(['時間', 'Time', 'time'])] || '',
+                                        location: row[fk(['地點', 'Location', '項目', '景點'])] || '未命名地點',
+                                        note: row[fk(['備註', 'Note', '內容', '說明'])] || '',
+                                        transport: row[fk(['交通', '如何前往', '交通建議', '搭乘'])] || ''
+                                    });
+                                    c++;
+                                }
+                            });
+                            this.activeTrip.days.sort((a, b) => a - b);
+                            if (c === 0) alert("未找到有效行程資料");
+                            else { alert(`成功匯入 ${c} 筆行程！`); this.pastedCsvData = ''; this.saveTripToCloud(); }
+                        }
+                    });
+                },
+                logoutRoom() {
+                    localStorage.removeItem('myTravelRoomKey_Raw');
+                    localStorage.removeItem('myTravelRoomKey_Safe');
+                    localStorage.removeItem('myTravelRole');
+                    location.reload();
+                },
+                editTripName(t) {
+                    const n = prompt("修改旅程名稱:", t.name);
+                    if (n) { t.name = n; this.saveTripToCloud(); }
+                },
+                addDay() {
+                    const m = this.activeTrip.days.length > 0 ? Math.max(...this.activeTrip.days) : 0;
+                    const n = m + 1;
+                    this.activeTrip.days.push(n);
+                    this.activeTrip.itinerary[n] = [];
+                    this.activeTrip.dailyHeaders[n] = { wear: '', snow: '', isEditing: false };
+                    this.currentDay = n;
+                    this.saveTripToCloud();
+                },
+                removeDay() {
+                    if (this.userRole !== 'admin') return;
+                    const m = Math.max(...this.activeTrip.days);
+                    if (m <= 1) return alert("行程至少需保留一天喔！");
+                    if (confirm(`確定要刪除第 ${m} 天的所有行程嗎？`)) {
+                        this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);
+                        delete this.activeTrip.itinerary[m];
+                        delete this.activeTrip.dailyHeaders[m];
+                        this.currentDay = Math.max(...this.activeTrip.days);
+                        this.saveTripToCloud();
+                    }
+                }
+            },
+            mounted() {
+                const savedRaw = localStorage.getItem('myTravelRoomKey_Raw');
+                const savedSafe = localStorage.getItem('myTravelRoomKey_Safe');
+                const savedRole = localStorage.getItem('myTravelRole');
+                const savedPrivate = localStorage.getItem('myTravel_PrivateData');
+                
+                if (savedPrivate) this.privateData = JSON.parse(savedPrivate);
+                if (savedRaw && savedSafe) {
+                    this.roomInput = savedRaw;
+                    this.safeRoomKey = savedSafe;
+                    this.userRole = savedRole || 'member';
+                    this.initFirebase();
+                }
+            }
+        }).mount('#app');
+    </script>
 </body>
 </html>
