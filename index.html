@@ -66,6 +66,7 @@
                     <div class="flex items-center gap-2">
                         <button v-if="userRole === 'admin'" @click.stop="editTripName(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">改名</button>
                         <button v-if="userRole === 'admin'" @click.stop="openDateModalForTrip(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">日期</button>
+                        <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip)" class="bg-red-50 text-red-500 px-2 py-1 rounded text-xs font-bold hover:bg-red-100 transition">刪除</button>
                         <div class="text-gray-300 pl-1 text-lg">➔</div>
                     </div>
                 </div>
@@ -308,7 +309,7 @@
                             <option value="">-- 請選擇 --</option>
                             <option v-for="spot in itinerarySpots" :key="spot" :value="spot">{{ spot }}</option>
                         </select>
-                        <label class="text-sm font-bold text-gray-700 mb-2 block mt-2">或手動輸入地點：</label>
+                        <label class="text-sm font-bold text-gray-700 mb-2 block mt-2">或手手動輸入地點：</label>
                         <input v-model="weatherCity" type="text" placeholder="例：東京、沖繩" class="w-full bg-gray-50 p-3 rounded-xl text-sm outline-none mb-4 border font-bold text-gray-700">
                         <a v-if="weatherCity" :href="'https://www.google.com/search?q=' + encodeURIComponent(weatherCity + ' 天氣')" target="_blank" class="block text-center theme-bg py-3 rounded-xl font-bold shadow-md active:scale-95 transition">🔍 在 Google 查看即時天氣</a>
                     </div>
@@ -772,6 +773,7 @@ logoutRoom(){
     location.reload();
 },
 editTripName(t){const n=prompt("名",t.name);if(n){t.name=n;this.saveTripToCloud();}},
+deleteTrip(t){if(this.userRole!=='admin')return;if(confirm(`確定要刪除「${t.name}」嗎？此動作將永久刪除該行程。`)){this.trips=this.trips.filter(x=>x.id!==t.id);if(this.privateData.tripDocs)delete this.privateData.tripDocs[t.id];this.saveTripToCloud();this.savePrivateData();}},
 addDay(){const m=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;const n=m+1;this.activeTrip.days.push(n);this.activeTrip.itinerary[n]=[];this.activeTrip.dailyHeaders[n]={wear:'',snow:'',isEditing:!1};this.currentDay=n;this.saveTripToCloud();},
 removeDay(){if(this.userRole!=='admin')return;const m=Math.max(...this.activeTrip.days);if(m<=1) return alert("行程至少需保留一天喔！");const hasItinerary = this.activeTrip.itinerary[m] && this.activeTrip.itinerary[m].length > 0;const msg = hasItinerary ? `Day ${m} 裡面還有行程喔！確定要強制刪除嗎？` : `確定要刪除 Day ${m} 嗎？`;if(confirm(msg)){this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);delete this.activeTrip.itinerary[m];delete this.activeTrip.dailyHeaders[m];if(this.currentDay === m) this.currentDay = Math.max(...this.activeTrip.days);this.saveTripToCloud();}}
 }}).mount('#app')
