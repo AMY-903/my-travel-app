@@ -66,7 +66,7 @@
                     <div class="flex items-center gap-2">
                         <button v-if="userRole === 'admin'" @click.stop="editTripName(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">改名</button>
                         <button v-if="userRole === 'admin'" @click.stop="openDateModalForTrip(trip)" class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold hover:bg-blue-100 theme-text transition">日期</button>
-                        <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip)" class="bg-red-50 text-red-500 px-2 py-1 rounded text-xs font-bold hover:bg-red-100 transition">刪除</button>
+                        <button v-if="userRole === 'admin'" @click.stop="deleteTrip(trip)" class="bg-red-50 text-red-400 px-2 py-1 rounded text-xs font-bold hover:bg-red-100 hover:text-red-600 transition">刪除</button>
                         <div class="text-gray-300 pl-1 text-lg">➔</div>
                     </div>
                 </div>
@@ -330,653 +330,331 @@
                         <p class="text-xs opacity-80 mt-6 font-bold">目前篩選總計</p>
                         <h2 class="text-4xl font-bold">{{ privateData.currency }} {{ filteredTotalForeign.toLocaleString() }}</h2>
                         <p class="text-sm mt-1 opacity-90 font-bold border-t border-white/20 pt-2">約 NT$ {{ Math.round(filteredTotalForeign * privateData.exchangeRate).toLocaleString() }}</p>
-                        <button @click="exportExpenseToCSV" class="mt-4 bg-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition w-full text-center hover:bg-white/30">📊 匯出篩選帳目 (CSV)</button>
+                        <button @click="exportExpenseToCSV" class="mt-4 bg-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition w-full text-center hover:bg-white/30">📥 匯出為通用 CSV (可匯入記帳 APP)</button>
                     </div>
 
-                    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                        <button @click="expenseFilter = 'all'" :class="expenseFilter === 'all' ? 'theme-bg shadow-md' : 'bg-white text-gray-500'" class="px-4 py-2 rounded-full font-bold text-xs whitespace-nowrap transition">全部項目</button>
-                        <button v-for="day in activeTrip.days" :key="day" @click="expenseFilter = day" :class="expenseFilter === day ? 'theme-bg shadow-md' : 'bg-white text-gray-500'" class="px-4 py-2 rounded-full font-bold text-xs whitespace-nowrap transition">Day {{ day }}</button>
+                    <div class="space-y-2">
+                        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                            <button @click="expenseDateFilter = '全部'" :class="expenseDateFilter === '全部' ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">全部日期</button>
+                            <button v-for="date in uniqueExpenseDates" :key="date" @click="expenseDateFilter = date" :class="expenseDateFilter === date ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">{{ date }}</button>
+                        </div>
+                        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1 items-center">
+                            <button v-for="cat in ['全部', ...privateData.expenseCategories]" :key="cat" @click="expenseFilter = cat" :class="expenseFilter === cat ? 'theme-bg' : 'bg-white text-gray-500 border'" class="px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all">{{ cat }}</button>
+                            <button @click="addExpenseCategory" class="px-3 py-1.5 rounded-full text-[11px] font-bold bg-gray-100 theme-text whitespace-nowrap">＋ 新增分類</button>
+                        </div>
+                    </div>
+
+                    <div class="japanese-card bg-white p-5 border-t-4 theme-border">
+                        <div class="flex justify-between items-center mb-3"><h3 class="font-bold text-gray-700 text-sm">{{ isEditingExpense ? '✏️ 編輯明細' : '📝 新增明細' }}</h3><button v-if="isEditingExpense" @click="cancelEditExpense" class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">取消編輯</button></div>
+                        <div class="space-y-2 mb-3">
+                            <div class="flex gap-2"><select v-model="newExpense.inout" class="w-1/4 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option>支出</option><option>收入</option></select><input type="date" v-model="newExpense.date" class="w-3/4 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
+                            <div class="flex gap-2"><select v-model="newExpense.mainCat" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option v-for="cat in privateData.expenseCategories" :key="cat">{{ cat }}</option></select><input v-model="newExpense.subCat" type="text" placeholder="子分類(選填)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
+                            <div class="flex gap-2"><select v-model="newExpense.payMethod" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><option>現金</option><option>信用卡</option><option>交通卡</option><option>行動支付</option><option>其他</option></select><input v-model="newExpense.bank" type="text" placeholder="銀行/卡名(選填)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"></div>
+                            <div class="flex gap-2"><input v-model="newExpense.name" type="text" placeholder="品項名稱" class="flex-1 bg-gray-50 p-2 rounded-xl text-xs font-bold outline-none border"><input v-model="newExpense.amount" type="text" placeholder="金額(可寫算式)" class="w-1/2 bg-gray-50 p-2 rounded-xl text-xs font-bold theme-text outline-none border"></div>
+                        </div>
+                        <button @click="saveExpense" :class="isEditingExpense ? 'bg-orange-500' : 'theme-bg'" class="w-full text-white py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95 transition">{{ isEditingExpense ? '更新儲存' : '自動計算並記入帳本' }}</button>
                     </div>
 
                     <div class="space-y-3">
-                        <div v-for="(expense, idx) in filteredExpenses" :key="expense.id" class="japanese-card bg-white p-4 flex justify-between items-center border-l-4 theme-border">
-                            <div>
-                                <h3 class="font-bold text-gray-800">{{ expense.item }}</h3>
-                                <div class="flex gap-2 mt-1">
-                                    <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-bold">Day {{ expense.day }}</span>
-                                    <span class="text-[10px] bg-blue-50 theme-text px-2 py-0.5 rounded font-bold">{{ expense.category }}</span>
+                        <div v-for="exp in filteredExpenses" :key="exp.id" class="japanese-card bg-white p-4">
+                            <div class="flex justify-between items-start">
+                                <div class="w-2/3">
+                                    <h4 class="font-bold text-gray-800 text-sm mb-1">{{ exp.name }} <span :class="exp.inout==='收入'?'bg-green-100 text-green-600':'bg-red-100 text-red-500'" class="text-[9px] px-1.5 py-0.5 rounded ml-1">{{exp.inout||'支出'}}</span></h4>
+                                    <p class="text-[10px] text-gray-500 font-bold mb-0.5">{{ exp.date || '無日期' }} | {{ exp.mainCat }}<span v-if="exp.subCat"> - {{exp.subCat}}</span></p>
+                                    <p class="text-[10px] text-gray-400 font-bold">💳 {{ exp.payMethod }} <span v-if="exp.bank">({{exp.bank}})</span></p>
+                                </div>
+                                <div class="w-1/3 text-right">
+                                    <p class="text-sm font-bold" :class="exp.inout==='收入'?'text-green-600':'theme-text'">{{ privateData.currency }} {{ exp.amount.toLocaleString() }}</p>
+                                    <p class="text-[10px] text-gray-400 font-bold mb-2">NT$ {{ Math.round(exp.amount * privateData.exchangeRate).toLocaleString() }}</p>
+                                    <div class="flex justify-end gap-2">
+                                        <button @click="editExpense(exp)" class="text-gray-400 hover:text-orange-500 text-[10px] font-bold bg-gray-50 px-1.5 py-1 rounded">✎</button>
+                                        <button @click="deleteExpense(exp.id)" class="text-gray-400 hover:text-red-500 text-[10px] font-bold bg-gray-50 px-1.5 py-1 rounded">✕</button>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="text-right flex items-center gap-3">
-                                <div><p class="font-bold text-gray-800">{{ privateData.currency }} {{ expense.amount }}</p><p class="text-[10px] text-gray-400 font-bold">約 NT$ {{ Math.round(expense.amount * privateData.exchangeRate) }}</p></div>
-                                <button @click="deleteExpense(expense.id)" class="text-gray-300 hover:text-red-400 font-bold ml-1">✕</button>
+                            <div class="mt-3 border-t border-gray-50 pt-3">
+                                <div v-if="exp.photo" class="relative inline-block w-24 h-24 rounded-lg overflow-hidden border shadow-sm"><img :src="exp.photo" class="w-full h-full object-cover"><button @click="exp.photo = null; savePrivateData()" class="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] rounded-full shadow-md">✕</button></div>
+                                <label v-else class="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg text-[10px] cursor-pointer hover:bg-gray-100 transition border border-gray-200 font-bold">📸 上傳照片<input type="file" class="hidden" accept="image/*" @change="uploadExpensePhoto(exp, $event)"></label>
                             </div>
                         </div>
+                        <div v-if="filteredExpenses.length === 0" class="text-center text-gray-400 py-6 text-sm font-bold">目前沒有記帳紀錄</div>
                     </div>
-                    <button @click="showExpenseModal = true" class="w-full theme-bg py-4 rounded-3xl font-bold shadow-lg active:scale-95 transition sticky bottom-24">＋ 新增一筆支出</button>
                 </section>
             </main>
 
-            <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md nav-blur border-t border-gray-100 flex justify-around p-3 pb-8 z-[200]">
-                <button v-for="tab in ['行程', '指南', '天氣', '記帳']" :key="tab" @click="activeTab = tab" :class="activeTab === tab ? 'theme-text scale-110' : 'text-gray-400'" class="flex flex-col items-center gap-1 transition-all">
-                    <span class="text-xl">{{ {行程:'🗺️', 指南:'✈️', 天氣:'☁️', 記帳:'💰'}[tab] }}</span>
-                    <span class="text-[10px] font-bold">{{ tab }}</span>
-                </button>
-            </nav>
+            <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-sm h-16 nav-blur border border-white rounded-full shadow-2xl flex justify-around items-center px-2 z-10"><button v-for="tab in tabs" :key="tab" @click="activeTab = tab" :class="activeTab === tab ? 'theme-bg shadow-md' : 'text-gray-400 hover:text-gray-600'" class="px-4 py-2 rounded-full text-xs font-bold transition-all w-1/4 text-center">{{ tab }}</button></nav>
         </div>
+    </div>
 
-        <div v-if="showNewSpotModal" class="fixed inset-0 modal-overlay z-[300] flex items-center justify-center p-6">
-            <div class="bg-white w-full rounded-[40px] p-8 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar">
-                <h2 class="text-xl font-bold theme-text mb-6 flex items-center">📍 {{ isEditingSpot ? '編輯景點' : '新增手動景點' }}</h2>
-                <div class="space-y-4">
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">景點名稱 *</label><input v-model="newSpot.name" placeholder="例：沖繩美麗海水族館" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"></div>
-                    <div class="flex gap-2">
-                        <div class="w-1/2"><label class="text-xs font-bold text-gray-400 ml-1">景點類型</label><select v-model="newSpot.type" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold cursor-pointer"><option v-for="t in spotTypes" :key="t" :value="t">{{ t }}</option></select></div>
-                        <div class="w-1/2"><label class="text-xs font-bold text-gray-400 ml-1">時間範圍</label><div class="flex items-center gap-1"><input v-model="newSpot.startTime" type="time" class="w-full bg-gray-50 p-3 rounded-xl text-xs outline-none border font-bold"></div></div>
-                    </div>
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">行程描述 (對外公開)</label><textarea v-model="newSpot.desc" placeholder="簡單描述此景點..." class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 h-20 resize-none font-bold text-sm"></textarea></div>
-                    <div class="bg-blue-50/50 p-5 rounded-[30px] space-y-3">
-                         <p class="text-[10px] font-bold text-blue-400 mb-1">💡 下方為全團可見的實用資訊</p>
-                         <input v-model="newSpot.photoTips" placeholder="📸 拍照建議 (例: 入口處夕陽最美)" class="w-full bg-white p-3 rounded-xl text-xs outline-none border border-blue-100 font-bold">
-                         <input v-model="newSpot.parkingInfo" placeholder="🅿️ 停車/交通 (例: 旁邊有免費停車場)" class="w-full bg-white p-3 rounded-xl text-xs outline-none border border-blue-100 font-bold">
-                         <input v-model="newSpot.transitSuggestion" placeholder="🚇 交通搭乘 (例: 搭乘藍線至A1站)" class="w-full bg-white p-3 rounded-xl text-xs outline-none border border-blue-100 font-bold">
-                    </div>
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">標籤 (以逗號分隔)</label><input v-model="newSpot.tagsInput" placeholder="美食, 打卡, 必去" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"></div>
-                </div>
-                <div class="flex gap-3 mt-8">
-                    <button @click="showNewSpotModal = false; isEditingSpot = false" class="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-bold active:scale-95 transition">取消</button>
-                    <button @click="saveSpot" class="flex-2 theme-bg py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition">{{ isEditingSpot ? '更新景點' : '確認新增' }}</button>
+    <div v-if="showSettingsModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl border-t-8 theme-border">
+            <h3 class="text-xl font-bold theme-text mb-4">🎨 個人化設定 <span v-if="activeTrip" class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded ml-2">本行程專屬</span></h3>
+            <div class="mb-5">
+                <label class="text-xs font-bold block mb-2 text-gray-500">主題色選擇</label>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <button v-for="color in themeColors" :key="color.hex" @click="changeThemeColor(color.hex)" class="w-10 h-10 rounded-full shadow-sm border-2 shrink-0 transition-transform" :class="getCurrentThemeColor() === color.hex ? 'scale-110 border-gray-400' : 'border-transparent'" :style="{ backgroundColor: color.hex }"></button>
+                    <label class="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer text-gray-400 font-bold bg-gray-50 overflow-hidden relative shrink-0">🎨<input type="color" :value="getCurrentThemeColor()" @input="handleColorPicker" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></label>
                 </div>
             </div>
-        </div>
-
-        <div v-if="showExpenseModal" class="fixed inset-0 modal-overlay z-[300] flex items-center justify-center p-6">
-            <div class="bg-white w-full rounded-[40px] p-8 shadow-2xl max-w-sm">
-                <h2 class="text-xl font-bold theme-text mb-6">💰 新增支出項目</h2>
-                <div class="space-y-4">
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">消費日期 (Day)</label><select v-model="newExpense.day" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"><option v-for="day in activeTrip.days" :key="day" :value="day">Day {{ day }}</option></select></div>
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">支出名稱</label><input v-model="newExpense.item" placeholder="例：一蘭拉麵" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"></div>
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">金額 ({{ privateData.currency }})</label><input v-model.number="newExpense.amount" type="number" placeholder="輸入外幣金額" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"></div>
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">分類</label><select v-model="newExpense.category" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"><option v-for="c in expenseCategories" :key="c" :value="c">{{ c }}</option></select></div>
-                </div>
-                <div class="flex gap-3 mt-8">
-                    <button @click="showExpenseModal = false" class="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-bold active:scale-95 transition">取消</button>
-                    <button @click="saveExpense" class="flex-2 theme-bg py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition">儲存帳目</button>
-                </div>
+            
+            <div class="mb-5">
+                <label class="text-xs font-bold block mb-2 text-gray-500">字體大小</label>
+                <select v-model="privateData.fontSize" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200">
+                    <option value="14px">小 (Small)</option>
+                    <option value="16px">中 (Medium - 預設)</option>
+                    <option value="18px">大 (Large)</option>
+                    <option value="20px">特大 (Extra Large)</option>
+                </select>
             </div>
-        </div>
-
-        <div v-if="showDateModal" class="fixed inset-0 modal-overlay z-[300] flex items-center justify-center p-6">
-            <div class="bg-white w-full rounded-[40px] p-8 shadow-2xl max-w-sm">
-                <h2 class="text-xl font-bold theme-text mb-6">📅 設定旅程日期</h2>
-                <p class="text-xs text-gray-400 mb-4 font-bold">設定首日後，Day 2, Day 3... 的日期將自動計算。</p>
-                <div class="space-y-4">
-                    <div><label class="text-xs font-bold text-gray-400 ml-1">開始日期</label><input v-model="editingTripDate.startDate" type="date" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100 font-bold"></div>
-                </div>
-                <div class="flex gap-3 mt-8">
-                    <button @click="showDateModal = false" class="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-bold active:scale-95 transition">取消</button>
-                    <button @click="saveTripDates" class="flex-2 theme-bg py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition">更新日期</button>
-                </div>
+            
+            <div class="mb-6">
+                <label class="text-xs font-bold block mb-2 text-gray-500">字體風格</label>
+                <select v-model="privateData.fontFamily" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200">
+                    <option value="'Zen Maru Gothic'">圓潤日系 (Zen Maru Gothic)</option>
+                    <option value="'Noto Sans TC'">清晰現代 (Noto Sans TC)</option>
+                    <option value="'M PLUS Rounded 1c'">活潑手寫 (M PLUS Rounded)</option>
+                </select>
             </div>
+            <button @click="showSettingsModal = false" class="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition hover:bg-gray-300">完成設定</button>
         </div>
-
-        <div v-if="showSettingsModal" class="fixed inset-0 modal-overlay z-[300] flex items-center justify-center p-6">
-            <div class="bg-white w-full rounded-[40px] p-8 shadow-2xl max-w-sm">
-                <h2 class="text-xl font-bold theme-text mb-6">🎨 個人化與設定</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-xs font-bold text-gray-400 ml-1">主題色設定</label>
-                        <div class="flex gap-3 mt-2">
-                            <button v-for="color in ['#6C8EBF', '#9DBF6C', '#BF6C6C', '#BF9D6C', '#8E6CBF', '#6CBFBF']" :key="color" @click="updateThemeColor(color)" :style="{ backgroundColor: color }" class="w-8 h-8 rounded-full border-2 border-white shadow-sm transition active:scale-125" :class="{'ring-2 ring-gray-400': themeColor === color}"></button>
-                        </div>
-                    </div>
-                </div>
-                <button @click="showSettingsModal = false" class="w-full theme-bg py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition mt-8">關閉設定</button>
-            </div>
+    </div>
+    
+    <div v-if="showDateModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl"><h3 class="text-xl font-bold theme-text mb-2">選擇旅遊日期</h3><div class="space-y-4"><div><label class="text-xs font-bold block mb-1">出發日期</label><input type="date" v-model="tempStartDate" class="w-full bg-gray-100 rounded-xl p-3 outline-none font-bold text-gray-700"></div><div><label class="text-xs font-bold block mb-1">回程日期</label><input type="date" v-model="tempEndDate" class="w-full bg-gray-100 rounded-xl p-3 outline-none font-bold text-gray-700"></div></div><div class="flex gap-3 mt-6"><button @click="showDateModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-3 rounded-xl font-bold">取消</button><button @click="saveDateRange" class="w-1/2 theme-bg py-3 rounded-xl font-bold shadow-md">確定儲存</button></div></div>
+    </div>
+    
+    <div v-if="showSpotModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"><h3 class="text-xl font-bold theme-text mb-4">{{ isEditingSpot ? '編輯行程' : '新增行程' }}</h3>
+            <div class="space-y-3"><div class="flex gap-2"><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">時間 (起)</label><input v-model="newSpot.startTime" type="text" placeholder="例: 09:00" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">預計停留</label><input v-model="newSpot.stayTime" placeholder="1.5h" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">分類</label><select v-model="newSpot.type" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"><option>景點</option><option>美食</option><option>交通</option><option>住宿</option><option>購物</option></select></div></div><div><label class="text-[11px] text-gray-500 font-bold block mb-1">地點名稱</label><input v-model="newSpot.name" type="text" class="w-full bg-gray-100 rounded-xl p-2 text-sm outline-none font-bold"></div><div><label class="text-[11px] text-gray-500 font-bold block mb-1">描述 / 拍照提醒</label><textarea v-model="newSpot.desc" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none resize-none h-16 font-bold"></textarea></div><div class="border-t pt-2 mt-2"><label class="text-[11px] text-blue-500 font-bold block mb-1">🚗 交通/停車資訊：</label><div class="flex gap-2 mb-2"><select v-model="newSpot.transitMethod" class="w-1/3 bg-blue-50 text-blue-700 rounded-xl p-2 text-xs outline-none font-bold"><option>自行開車</option><option>大眾運輸</option></select><input v-model="newSpot.transitTime" type="text" placeholder="花費時間 (例: 15min)" class="w-2/3 bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div><input v-if="newSpot.transitMethod === '自行開車'" v-model="newSpot.parkingInfo" type="text" placeholder="🅿️ 停車、加油..." class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"><input v-if="newSpot.transitMethod === '大眾運輸'" v-model="newSpot.transitSuggestion" type="text" placeholder="🚇 如何前往？(例：搭公車)" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div></div>
+            <div class="flex gap-3 mt-6"><button @click="showSpotModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-2 rounded-xl font-bold">取消</button><button @click="saveSpot" class="w-1/2 theme-bg py-2 rounded-xl font-bold shadow-md">儲存</button></div>
         </div>
-
     </div>
 </div>
 
 <script>
-const { createApp } = Vue;
-
+const firebaseConfig = {apiKey:"AIzaSyBsHOCxyulG_-PdPgVC1j3gUDjcz3JG_o4",authDomain:"mytravelapp-137b7.firebaseapp.com",databaseURL:"https://mytravelapp-137b7-default-rtdb.asia-southeast1.firebasedatabase.app/",projectId:"mytravelapp-137b7",storageBucket:"mytravelapp-137b7.firebasestorage.app",messagingSenderId:"962737417227",appId:"1:962737417227:web:0981cb4312f609c39c2b0e",measurementId:"G-9MHPSLYTC5"};
+firebase.initializeApp(firebaseConfig);const db=firebase.database();const {createApp}=Vue;
 createApp({
-    data() {
-        return {
-            isLoggedIn: false,
-            roomInput: localStorage.getItem('myTravelRoomKey_Raw') || '',
-            userRole: localStorage.getItem('myTravelRole') || 'member',
-            syncStatus: 'offline',
-            roomRef: null,
-            
-            appMainTitle: '我的旅遊保險箱',
-            themeColor: localStorage.getItem('myTravelThemeColor') || '#6C8EBF',
-            
-            trips: [],
-            currentView: 'home',
-            activeTrip: null,
-            activeTab: '行程',
-            currentDay: 1,
-            
-            showNewSpotModal: false,
-            isEditingSpot: false,
-            editingSpotIndex: null,
-            newSpot: { id: '', name: '', type: '景點', startTime: '09:00', desc: '', photoTips: '', parkingInfo: '', transitSuggestion: '', tagsInput: '', tags: [] },
-            spotTypes: ['景點', '美食', '飯店', '交通', '購物', '活動', '機場'],
-            
-            pastedCsvData: '',
-            defaultImportTransitMethod: '自行開車',
-            
-            showExpenseModal: false,
-            newExpense: { day: 1, item: '', amount: 0, category: '餐飲' },
-            expenseCategories: ['餐飲', '交通', '門票', '購物', '住宿', '雜項'],
-            expenseFilter: 'all',
-            
-            showDateModal: false,
-            editingTripDate: { id: '', startDate: '' },
-            
-            showSettingsModal: false,
-            
-            privateData: {
-                expenses: [],
-                tripDocs: {},
-                packingCategories: ['必備證件', '電子產品', '生活用品', '衣物鞋襪'],
-                packingItems: [],
-                journals: {},
-                currency: 'JPY',
-                exchangeRate: 0.22,
-                appTitle: '阿皓ㄉ旅遊雲端保險箱'
-            },
-            
-            autoWeatherInput: '',
-            weatherCity: '',
-            
-            draggedIndex: null,
-            dragOverIndex: null,
-            
-            isEditingEmergency: false,
-            isEditingRules: false
-        };
-    },
-    computed: {
-        filteredExpenses() {
-            if (!this.activeTrip) return [];
-            let list = this.privateData.expenses.filter(e => e.tripId === this.activeTrip.id);
-            if (this.expenseFilter !== 'all') {
-                list = list.filter(e => e.day === this.expenseFilter);
-            }
-            return list.sort((a, b) => b.id - a.id);
-        },
-        filteredTotalForeign() {
-            return this.filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-        },
-        itinerarySpots() {
-            if (!this.activeTrip) return [];
-            let spots = new Set();
-            Object.values(this.activeTrip.itinerary).forEach(dayList => {
-                dayList.forEach(s => spots.add(s.name));
-            });
-            return Array.from(spots);
-        }
-    },
-    watch: {
-        themeColor(newColor) {
-            document.documentElement.style.setProperty('--theme-color', newColor);
-            localStorage.setItem('myTravelThemeColor', newColor);
-        }
-    },
-    created() {
-        document.documentElement.style.setProperty('--theme-color', this.themeColor);
-        if (this.roomInput) this.enterRoom();
-        this.loadPrivateData();
-    },
-    methods: {
-        enterRoom() {
-            if (!this.roomInput.trim()) return alert("請輸入代碼");
-            const safeKey = btoa(encodeURIComponent(this.roomInput.trim())).replace(/=/g, '');
-            localStorage.setItem('myTravelRoomKey_Raw', this.roomInput);
-            localStorage.setItem('myTravelRoomKey_Safe', safeKey);
-            localStorage.setItem('myTravelRole', this.userRole);
-            
-            if (typeof firebase === 'undefined') return alert("Firebase 未載入，請檢查網路");
-            
-            const config = { databaseURL: "https://travellog-6d0a7-default-rtdb.firebaseio.com/" };
-            if (!firebase.apps.length) firebase.initializeApp(config);
-            this.roomRef = firebase.database().ref('rooms/' + safeKey);
-            
-            this.roomRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    this.trips = data.trips || [];
-                    this.appMainTitle = data.appTitle || '阿皓ㄉ旅遊雲端保險箱';
-                    if (this.activeTrip) {
-                        const updated = this.trips.find(t => t.id === this.activeTrip.id);
-                        if (updated) this.activeTrip = updated;
-                    }
-                } else {
-                    this.trips = [];
-                    this.saveTripToCloud();
-                }
-                this.syncStatus = 'online';
-                this.isLoggedIn = true;
-            });
-        },
-        saveTripToCloud() {
-            if (this.userRole !== 'admin' || !this.roomRef) return;
-            this.roomRef.set({
-                trips: this.trips,
-                appTitle: this.appMainTitle,
-                lastUpdated: Date.now()
-            });
-        },
-        createNewTrip() {
-            const name = prompt("旅程名稱 (例: 2024 東京探險)");
-            if (!name) return;
-            const newTrip = {
-                id: 'trip_' + Date.now(),
-                name: name,
-                startDate: '',
-                endDate: '',
-                days: [1],
-                itinerary: { 1: [] },
-                dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
-                emergency: { police: '110', ambulance: '119', extra: '' },
-                rules: '1. 準時集合\n2. 注意財物',
-                dynamicDocs: []
-            };
-            this.trips.push(newTrip);
-            this.saveTripToCloud();
-        },
-        openTrip(trip) {
-            this.activeTrip = trip;
-            this.currentView = 'detail';
-            this.activeTab = '行程';
-            this.currentDay = 1;
-            this.expenseFilter = 'all';
-            this.initPrivateTripData(trip.id);
-        },
-        goBack() {
-            this.currentView = 'home';
-            this.activeTrip = null;
-        },
-        getDayDate(dayNum) {
-            if (!this.activeTrip || !this.activeTrip.startDate) return '';
-            const start = new Date(this.activeTrip.startDate);
-            start.setDate(start.getDate() + (dayNum - 1));
-            return (start.getMonth() + 1) + '/' + start.getDate();
-        },
-        openDateModalForTrip(trip) {
-            this.editingTripDate = { id: trip.id, startDate: trip.startDate || '' };
-            this.showDateModal = true;
-        },
-        saveTripDates() {
-            const trip = this.trips.find(t => t.id === this.editingTripDate.id);
-            if (trip) {
-                trip.startDate = this.editingTripDate.startDate;
-                if (trip.startDate) {
-                    const start = new Date(trip.startDate);
-                    const end = new Date(start);
-                    end.setDate(start.getDate() + (trip.days.length - 1));
-                    trip.endDate = end.toISOString().split('T')[0];
-                }
-                this.saveTripToCloud();
-            }
-            this.showDateModal = false;
-        },
-        openNewSpotModal() {
-            this.newSpot = { id: '', name: '', type: '景點', startTime: '09:00', desc: '', photoTips: '', parkingInfo: '', transitSuggestion: '', tagsInput: '', tags: [] };
-            this.isEditingSpot = false;
-            this.showNewSpotModal = true;
-        },
-        editSpotInit(day, idx) {
-            const spot = this.activeTrip.itinerary[day][idx];
-            this.newSpot = JSON.parse(JSON.stringify(spot));
-            this.newSpot.tagsInput = (this.newSpot.tags || []).join(', ');
-            this.isEditingSpot = true;
-            this.editingSpotIndex = idx;
-            this.showNewSpotModal = true;
-        },
-        saveSpot() {
-            if (!this.newSpot.name) return alert("請填寫名稱");
-            this.newSpot.tags = this.newSpot.tagsInput.split(',').map(t => t.trim()).filter(t => t);
-            
-            if (!this.activeTrip.itinerary[this.currentDay]) this.activeTrip.itinerary[this.currentDay] = [];
-            
-            if (this.isEditingSpot) {
-                this.activeTrip.itinerary[this.currentDay][this.editingSpotIndex] = { ...this.newSpot };
-            } else {
-                this.newSpot.id = 'spot_' + Date.now();
-                this.activeTrip.itinerary[this.currentDay].push({ ...this.newSpot });
-            }
-            
-            this.activeTrip.itinerary[this.currentDay].sort((a, b) => a.startTime.localeCompare(b.startTime));
-            this.calculateTransitTimes(this.currentDay);
-            this.saveTripToCloud();
-            this.showNewSpotModal = false;
-            this.isEditingSpot = false;
-        },
-        deleteSpot(index) {
-            if (!confirm("確定要刪除此景點嗎？")) return;
-            this.activeTrip.itinerary[this.currentDay].splice(index, 1);
-            this.calculateTransitTimes(this.currentDay);
-            this.saveTripToCloud();
-        },
-        calculateTransitTimes(day) {
-            const list = this.activeTrip.itinerary[day];
-            for (let i = 1; i < list.length; i++) {
-                const prev = list[i - 1];
-                const curr = list[i];
-                if (prev.startTime && curr.startTime) {
-                    const diff = this.getTimeDiff(prev.startTime, curr.startTime);
-                    curr.transitTime = diff > 0 ? diff + ' min' : '';
-                    curr.transitMethod = curr.transitMethod || this.defaultImportTransitMethod;
-                }
-            }
-        },
-        getTimeDiff(start, end) {
-            const s = start.split(':').map(Number);
-            const e = end.split(':').map(Number);
-            const diff = (e[0] * 60 + e[1]) - (s[0] * 60 + s[1]);
-            return diff;
-        },
-        displayTimeRange(spot) {
-            return spot.startTime || '未定';
-        },
-        getMapsLink(day, idx) {
-            const spot = this.activeTrip.itinerary[day][idx];
-            return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(spot.name);
-        },
-        importPastedData() {
-            if (!this.pastedCsvData.trim()) return alert("請先貼上資料");
-            Papa.parse(this.pastedCsvData, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    const rows = results.data;
-                    let c = 0;
-                    const fk = (keys) => {
-                        const rowKeys = Object.keys(rows[0]);
-                        return keys.find(k => rowKeys.includes(k));
-                    };
-                    
-                    rows.forEach(row => {
-                        const day = parseInt(row[fk(['Day', '天數', '日期天數'])]) || 1;
-                        const name = row[fk(['景點名稱', '景點', '地點', '名稱'])];
-                        if (name) {
-                            if (!this.activeTrip.days.includes(day)) {
-                                this.activeTrip.days.push(day);
-                                this.activeTrip.itinerary[day] = [];
-                                this.activeTrip.dailyHeaders[day] = { wear: '', snow: '', isEditing: false };
-                            }
-                            this.activeTrip.itinerary[day].push({
-                                id: 'spot_' + Date.now() + Math.random(),
-                                name: name,
-                                type: row[fk(['類型', '景點類型'])] || '景點',
-                                startTime: row[fk(['時間', '開始時間'])] || '09:00',
-                                desc: row[fk(['備註', '描述', '內容'])] || '',
-                                photoTips: row[fk(['拍照建議', '拍照'])] || '',
-                                parkingInfo: row[fk(['停車資訊', '停車', '交通備註'])] || '',
-                                transitSuggestion: row[fk(['如何前往', '交通建議', '搭乘'])] || ''
-                            });
-                            c++;
-                        }
-                    });
-                    this.activeTrip.days.sort((a, b) => a - b);
-                    if (c === 0) alert("未找到行程");
-                    else {
-                        alert(`匯入 ${c} 筆行程！`);
-                        this.pastedCsvData = '';
-                        this.saveTripToCloud();
-                    }
-                }
-            });
-        },
-        logoutRoom() {
-            localStorage.removeItem('myTravelRoomKey_Raw');
-            localStorage.removeItem('myTravelRoomKey_Safe');
-            localStorage.removeItem('myTravelRole');
-            location.reload();
-        },
-        editTripName(t) {
-            const n = prompt("旅程新名稱", t.name);
-            if (n) { t.name = n; this.saveTripToCloud(); }
-        },
-        // 新增刪除旅程方法
-        deleteTrip(trip) {
-            if (!confirm(`確定要刪除「${trip.name}」嗎？此動作無法撤回，且會影響所有旅伴。`)) return;
-            const index = this.trips.findIndex(t => t.id === trip.id);
-            if (index !== -1) {
-                this.trips.splice(index, 1);
-                this.saveTripToCloud();
-                alert("旅程已刪除");
-            }
-        },
-        addDay() {
-            const m = this.activeTrip.days.length > 0 ? Math.max(...this.activeTrip.days) : 0;
-            const n = m + 1;
-            this.activeTrip.days.push(n);
-            this.activeTrip.itinerary[n] = [];
-            this.activeTrip.dailyHeaders[n] = { wear: '', snow: '', isEditing: false };
-            this.currentDay = n;
-            this.saveTripToCloud();
-        },
-        removeDay() {
-            if (this.userRole !== 'admin') return;
-            const m = Math.max(...this.activeTrip.days);
-            if (m <= 1) return alert("行程至少需保留一天喔！");
-            if (confirm(`確定要刪除最後一天 (Day ${m}) 嗎？此動作將連同當日行程一起刪除。`)) {
-                this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);
-                delete this.activeTrip.itinerary[m];
-                delete this.activeTrip.dailyHeaders[m];
-                if (this.currentDay === m) this.currentDay = Math.max(...this.activeTrip.days);
-                this.saveTripToCloud();
-            }
-        },
-        loadPrivateData() {
-            const d = localStorage.getItem('myTravelPrivateData_v2');
-            if (d) {
-                this.privateData = { ...this.privateData, ...JSON.parse(d) };
-                this.appMainTitle = this.privateData.appTitle || this.appMainTitle;
-            }
-        },
-        savePrivateData() {
-            localStorage.setItem('myTravelPrivateData_v2', JSON.stringify(this.privateData));
-        },
-        initPrivateTripData(tid) {
-            if (!this.privateData.tripDocs[tid]) {
-                this.privateData.tripDocs[tid] = { flights: { outbound: {}, inbound: {} }, vjwImage: '' };
-            }
-            if (!this.privateData.journals[tid]) this.privateData.journals[tid] = {};
-            this.savePrivateData();
-        },
-        getPrivateSpotData(sid) {
-            if (!this.activeTrip) return {};
-            const tid = this.activeTrip.id;
-            if (!this.privateData.journals[tid][sid]) {
-                this.privateData.journals[tid][sid] = { journal: '', photos: [], isEditing: false };
-            }
-            return this.privateData.journals[tid][sid];
-        },
-        toggleJournalEdit(sid) {
-            const data = this.getPrivateSpotData(sid);
-            data.isEditing = !data.isEditing;
-            if (!data.isEditing) this.savePrivateData();
-        },
-        uploadPrivatePhoto(sid, e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (re) => {
-                const data = this.getPrivateSpotData(sid);
-                if (!data.photos) data.photos = [];
-                data.photos.push(re.target.result);
-                this.savePrivateData();
-            };
-            reader.readAsDataURL(file);
-        },
-        uploadPrivateTripImage(field, e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (re) => {
-                if (field === 'outbound' || field === 'inbound') {
-                    this.privateData.tripDocs[this.activeTrip.id].flights[field].eTicketImage = re.target.result;
-                } else {
-                    this.privateData.tripDocs[this.activeTrip.id][field] = re.target.result;
-                }
-                this.savePrivateData();
-            };
-            reader.readAsDataURL(file);
-        },
-        removePrivateTripImage(field) {
-            if (field === 'outbound' || field === 'inbound') {
-                delete this.privateData.tripDocs[this.activeTrip.id].flights[field].eTicketImage;
-            } else {
-                this.privateData.tripDocs[this.activeTrip.id][field] = '';
-            }
-            this.savePrivateData();
-        },
-        saveExpense() {
-            if (!this.newExpense.item || !this.newExpense.amount) return alert("請填寫項目與金額");
-            this.privateData.expenses.push({
-                ...this.newExpense,
-                id: Date.now(),
-                tripId: this.activeTrip.id
-            });
-            this.savePrivateData();
-            this.showExpenseModal = false;
-            this.newExpense = { day: this.currentDay, item: '', amount: 0, category: '餐飲' };
-        },
-        deleteExpense(id) {
-            this.privateData.expenses = this.privateData.expenses.filter(e => e.id !== id);
-            this.savePrivateData();
-        },
-        exportExpenseToCSV() {
-            const data = this.filteredExpenses.map(e => ({
-                Day: e.day,
-                項目: e.item,
-                金額: e.amount,
-                分類: e.category,
-                台幣概估: Math.round(e.amount * this.privateData.exchangeRate)
-            }));
-            const csv = Papa.unparse(data);
-            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `記帳備份_${this.activeTrip.name}.csv`;
-            link.click();
-        },
-        exportPrivateData() {
-            const data = JSON.stringify(this.privateData);
-            const blob = new Blob([data], { type: 'application/json' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `我的旅遊私人備份_${new Date().toLocaleDateString()}.json`;
-            link.click();
-        },
-        importPrivateData(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (re) => {
-                try {
-                    const data = JSON.parse(re.target.result);
-                    this.privateData = data;
-                    this.savePrivateData();
-                    alert("私人資料匯入成功！");
-                    location.reload();
-                } catch (err) {
-                    alert("匯入失敗，請檢查檔案格式");
-                }
-            };
-            reader.readAsText(file);
-        },
-        fetchRealtimeRate() {
-            const cur = this.privateData.currency;
-            if (cur === 'JPY') this.privateData.exchangeRate = 0.22;
-            else if (cur === 'KRW') this.privateData.exchangeRate = 0.024;
-            else if (cur === 'THB') this.privateData.exchangeRate = 0.9;
-            else this.privateData.exchangeRate = 32;
-            alert(`已更新 ${cur} 參考匯率！建議視情況手動調整。`);
-            this.savePrivateData();
-        },
-        addPackingCategory() {
-            const n = prompt("分類名稱 (例: 攝影器材)");
-            if (n && !this.privateData.packingCategories.includes(n)) {
-                this.privateData.packingCategories.push(n);
-                this.savePrivateData();
-            }
-        },
-        deletePackingCategory(c) {
-            if (confirm(`確定刪除 ${c} 分類及其所有物品？`)) {
-                this.privateData.packingCategories = this.privateData.packingCategories.filter(x => x !== c);
-                this.privateData.packingItems = this.privateData.packingItems.filter(i => i.category !== c);
-                this.savePrivateData();
-            }
-        },
-        getPackingItems(c) {
-            return this.privateData.packingItems.filter(i => i.category === c);
-        },
-        addPackingItem(c) {
-            const input = document.getElementById('input-' + c);
-            const name = input.value.trim();
-            if (name) {
-                this.privateData.packingItems.push({ id: Date.now(), category: c, name: name, checked: false });
-                input.value = '';
-                this.savePrivateData();
-            }
-        },
-        removePackingItem(id) {
-            this.privateData.packingItems = this.privateData.packingItems.filter(i => i.id !== id);
-            this.savePrivateData();
-        },
-        updateThemeColor(c) {
-            this.themeColor = c;
-        },
-        editAppTitle() {
-            if (this.userRole !== 'admin') return;
-            const n = prompt("修改 APP 大標題", this.appMainTitle);
-            if (n) {
-                this.appMainTitle = n;
-                this.privateData.appTitle = n;
-                this.savePrivateData();
-                this.saveTripToCloud();
-            }
-        },
-        autoSyncHeaderWeather(day) {
-            if (!this.autoWeatherInput) return alert("請輸入城市名稱");
-            this.activeTrip.dailyHeaders[day].snow = `已設定查詢城市: ${this.autoWeatherInput} (請點擊對外連結查看細節)`;
-            this.saveTripToCloud();
-        },
-        dragStart(day, idx, e) {
-            this.draggedIndex = idx;
-            e.dataTransfer.effectAllowed = 'move';
-        },
-        dragOver(idx, e) {
-            this.dragOverIndex = idx;
-        },
-        dragDrop(day, idx) {
-            const list = this.activeTrip.itinerary[day];
-            const item = list.splice(this.draggedIndex, 1)[0];
-            list.splice(idx, 0, item);
-            this.draggedIndex = null;
-            this.dragOverIndex = null;
-            this.calculateTransitTimes(day);
-            this.saveTripToCloud();
-        },
-        addDoc() {
-            this.activeTrip.dynamicDocs.push({ id: Date.now(), name: '', link: '' });
-        },
-        removeDoc(idx) {
-            this.activeTrip.dynamicDocs.splice(idx, 1);
-            this.saveTripToCloud();
-        },
-        importFlightQR(type) {
-            alert("請直接在上傳機票處選取圖片，本系統將由您人工輸入重要資訊。");
-        }
+data(){return{isLoggedIn:!1,roomInput:'',safeRoomKey:'',userRole:'admin',syncStatus:'connecting',loginTitle:'輸入通關密碼🔑 開啟旅行✈️',appMainTitle:localStorage.getItem('HAMAR_APP_TITLE')||'日系旅遊助手',trips:[],activeTrip:null,currentView:'home',activeTab:'行程',currentDay:1,tabs:['行程','指南','天氣','記帳'],showSpotModal:!1,showDateModal:!1,showSettingsModal:!1,editingTripForDate:null,tempStartDate:'',tempEndDate:'',newSpot:{name:'',desc:'',type:'景點',startTime:'09:00',stayTime:'1.5h',transitTime:'',transitMethod:'自行開車',parkingInfo:'',transitSuggestion:''},isEditingSpot:!1,editSpotIndex:null,themeColors:[{hex:'#6C8EBF'},{hex:'#F4A7B9'},{hex:'#86A697'},{hex:'#333631'},{hex:'#E87A5D'},{hex:'#D9A62E'},{hex:'#9D89B5'},{hex:'#2B5F75'}],privateData:{themeColor:'#6C8EBF',tripThemes:{},fontFamily:"'Zen Maru Gothic'",fontSize:'16px',packingCategories:['隨身背包','托運行李','文件'],packing:[],expenseCategories:['飲食','交通','購物','住宿','其他'],expenses:[],currency:'JPY',exchangeRate:0.21,spotNotes:{},tripDocs:{}},newExpense:{inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:''},isEditingExpense:!1,editingExpenseId:null,expenseFilter:'全部',expenseDateFilter:'全部',autoWeatherInput:'',isSyncingWeather:!1,weatherCity:'',pastedCsvData:'',defaultImportTransitMethod:'自行開車',draggedDay:null,draggedIndex:null,dragOverIndex:null,isEditingEmergency:!1,isEditingRules:!1}},
+computed:{itinerarySpots(){if(!this.activeTrip||!this.activeTrip.itinerary)return[];let s=new Set();Object.values(this.activeTrip.itinerary).forEach(d=>{d.forEach(x=>{if(x.name)s.add(x.name);});});return Array.from(s);},uniqueExpenseDates(){if(!this.privateData.expenses)return[];return [...new Set(this.privateData.expenses.map(e=>e.date||'無日期'))].sort();},filteredExpenses(){if(!this.privateData.expenses)return[];return this.privateData.expenses.filter(e=>{const mC=this.expenseFilter==='全部'||e.mainCat===this.expenseFilter;const mD=this.expenseDateFilter==='全部'||(e.date||'無日期')===this.expenseDateFilter;return mC&&mD;});},filteredTotalForeign(){return this.filteredExpenses.reduce((s,e)=>s+(e.inout==='收入'?-Number(e.amount):Number(e.amount)),0);}},
+mounted(){const r=localStorage.getItem('myTravelRoomKey_Raw'),s=localStorage.getItem('myTravelRoomKey_Safe');if(r&&s){this.roomInput=r;this.safeRoomKey=s;this.userRole=localStorage.getItem('myTravelRole')||'admin';this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;}this.applySettings();},
+watch:{trips:{handler(n){if(!this.isUpdatingFromFirebase&&this.tripRef&&this.userRole==='admin'){this.syncStatus='saving';this.tripRef.set(JSON.parse(JSON.stringify(n))).then(()=>{this.syncStatus='online';});}},deep:!0}},
+methods:{
+    // 請將這段貼在 methods: { 的正下方，encodeRoomKey(s) 的上方
+createNewTrip() {
+    // 1. 權限檢查：只有主揪 (admin) 可以新增旅程
+    if (this.userRole !== 'admin') {
+        alert('只有主揪可以新增旅程喔！');
+        return;
     }
-}).mount('#app');
+
+    // 2. 建立新旅程的完整基本資料結構 (包含預設的緊急與規範資訊，不遺漏任何原有功能)
+    const newTripId = 'trip_' + Date.now();
+    const newTrip = {
+        id: newTripId,
+        name: '新旅程 (請點擊改名)',
+        startDate: '', // 預設空日期，讓使用者後續點擊設定
+        endDate: '',
+        days: [1], // 預設至少第一天
+        itinerary: { 1: [] },
+        dailyHeaders: { 1: { wear: '', snow: '', isEditing: false } },
+        dynamicDocs: [],
+        emergency: { police: '110', ambulance: '119', extra: '駐日代表處請上網查詢' },
+        rules: '入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音'
+    };
+
+    // 3. 將新旅程推入公用旅程陣列中
+    this.trips.push(newTrip);
+
+    // 4. 強制同步至 Firebase 雲端
+    this.saveTripToCloud();
+
+    // 5. 初始化與這個新旅程綁定的「私人資料」(機票、VJW等，防止點進去報錯)
+    if (!this.privateData.tripDocs) {
+        this.privateData.tripDocs = {};
+    }
+    if (!this.privateData.tripDocs[newTripId]) {
+        this.privateData.tripDocs[newTripId] = {
+            flights: {
+                outbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null },
+                inbound: { flightNo: '', depAirport: '', depTime: '', arrAirport: '', arrTime: '', bookingRef: '', gate: '', boardingTime: '', eTicketImage: null }
+            },
+            vjwImage: null
+        };
+    }
+
+    // 6. 賦予預設主題色
+    if (!this.privateData.tripThemes) {
+        this.privateData.tripThemes = {};
+    }
+    this.privateData.tripThemes[newTripId] = this.privateData.themeColor || '#6C8EBF';
+
+    // 7. 儲存私人設定至 LocalStorage
+    this.savePrivateData();
+
+    // 8. 成功提示
+    alert('✨ 新增旅程成功！請點擊新旅程的「日期」來設定出發日。');
+},
+encodeRoomKey(s){return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join('');},
+enterRoom(){const r=this.roomInput.trim();if(!r)return;this.safeRoomKey=this.encodeRoomKey(r);localStorage.setItem('myTravelRoomKey_Raw',r);localStorage.setItem('myTravelRoomKey_Safe',this.safeRoomKey);localStorage.setItem('myTravelRole',this.userRole);this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;},
+
+getCurrentThemeColor() {
+    if (this.activeTrip) {
+        return (this.privateData.tripThemes && this.privateData.tripThemes[this.activeTrip.id]) ? this.privateData.tripThemes[this.activeTrip.id] : (this.privateData.themeColor || '#6C8EBF');
+    }
+    return this.privateData.themeColor || '#6C8EBF';
+},
+changeThemeColor(h){
+    if (this.activeTrip) {
+        if (!this.privateData.tripThemes) this.privateData.tripThemes = {};
+        this.privateData.tripThemes[this.activeTrip.id] = h;
+    } else {
+        this.privateData.themeColor = h;
+    }
+    this.applySettings();
+},
+handleColorPicker(e) {
+    this.changeThemeColor(e.target.value);
+},
+applySettings(){
+    const color = this.getCurrentThemeColor();
+    document.documentElement.style.setProperty('--theme-color', color);
+    document.documentElement.style.setProperty('--theme-font', this.privateData.fontFamily);
+    // 🎯 這裡會動態調整整個網頁的基準字體大小
+    document.documentElement.style.fontSize = this.privateData.fontSize || '16px'; 
+    this.savePrivateData();
+},
+
+editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("標題：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
+initFirebase(rk){this.tripRef=db.ref('travel_rooms/'+rk);this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});});},
+initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
+saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
+
+openTrip(t){
+    this.initTripDefaults(t);this.activeTrip=t;
+    if(!this.privateData.tripDocs[t.id]){
+        this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null};
+        this.savePrivateData();
+    }
+    this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0];
+    this.$nextTick(() => { this.applySettings(); });
+},
+goBack(){
+    this.currentView='home';this.activeTrip=null;
+    this.$nextTick(() => { this.applySettings(); });
+},
+
+openDateModalForTrip(t){if(this.userRole!=='admin')return;this.editingTripForDate=t;this.tempStartDate=t.startDate||'';this.tempEndDate=t.endDate||'';this.showDateModal=!0;},closeDateModal(){this.showDateModal=!1;this.editingTripForDate=null;},saveDateRange(){if(this.userRole!=='admin')return;let tt=this.editingTripForDate||this.activeTrip;tt.startDate=this.tempStartDate;tt.endDate=this.tempEndDate;if(this.tempStartDate&&this.tempEndDate){const diff=Math.ceil((new Date(this.tempEndDate)-new Date(this.tempStartDate))/86400000)+1;if(diff>0&&diff<=30){const nd=[];for(let i=1;i<=diff;i++){nd.push(i);if(!tt.itinerary[i])tt.itinerary[i]=[];if(!tt.dailyHeaders[i])tt.dailyHeaders[i]={wear:'',snow:'',isEditing:!1};}tt.days=nd;}}this.saveTripToCloud();this.showDateModal=!1;},
+getDayDate(d){if(!this.activeTrip.startDate)return '';const s=new Date(this.activeTrip.startDate);s.setDate(s.getDate()+(d-1));return (s.getMonth()+1)+'/'+s.getDate();},
+displayTimeRange(s) {if (!s.startTime) return '未設定時間';let st = String(s.startTime).trim();if (st.includes('-') || st.includes('~')) return st;let h = 0, m = 0;if (st.includes(':')) { let p = st.split(':'); h = parseInt(p[0]) || 0; m = parseInt(p[1]) || 0; } else { return st; }let stay = String(s.stayTime || '1.5h');let match = stay.match(/(\d+)\s*(h|min|分鐘|小時|分|時)/i);if (!match) return st;let val = Number(match[1]);let unit = match[2];let add = (unit.includes('h') || unit.includes('時') || unit.includes('小時')) ? val * 60 : val;let d = new Date(); d.setHours(h, m + add);return `${st} ~ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;},
+async autoSyncHeaderWeather(d){let q=this.autoWeatherInput.trim();if(!q){const s=this.activeTrip.itinerary[d];if(!s||s.length===0)return alert('請輸入城市名！');q=s[0].name;}const tD=new Date(this.activeTrip.startDate);tD.setDate(tD.getDate()+(d-1));if((tD-new Date())/(1000*60*60*24)>14){alert("🌤️ 氣象 API 僅支援未來 14 天內預報，請接近出發日再查詢！");return;}this.isSyncingWeather=!0;const map={'沖繩':'Naha','那霸':'Naha','美麗海':'Nago','東京':'Tokyo','大阪':'Osaka','京都':'Kyoto','福岡':'Fukuoka','札幌':'Sapporo','名古屋':'Nagoya'};if(map[q])q=map[q];try{const r1=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1`);const d1=await r1.json();if(!d1.results)throw new Error();const lat=d1.results[0].latitude,lon=d1.results[0].longitude;const dS=tD.toISOString().split('T')[0];const r2=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=${dS}&end_date=${dS}&timezone=auto`);const d2=await r2.json();if(d2.error)throw new Error();const maxT=d2.daily.temperature_2m_max[0],minT=d2.daily.temperature_2m_min[0],rainP=d2.daily.precipitation_probability_max[0];this.activeTrip.dailyHeaders[d].wear=maxT<0?"發熱衣+防風+防滑雪靴":maxT<10?"發熱衣+厚外套":maxT<20?"長袖+輕薄外套":maxT<28?"短袖為主":"透氣短袖+防曬";this.activeTrip.dailyHeaders[d].snow=`降雨 ${rainP}% (${minT}~${maxT}°C)`;this.saveTripToCloud();}catch(e){alert("查無天氣，請嘗試輸入英文");}finally{this.isSyncingWeather=!1;}},
+
+loadPrivateData(){
+    const l=localStorage.getItem('HAMAR_PRIVATE_'+this.safeRoomKey);
+    if(l){
+        const p=JSON.parse(l);
+        if(!p.expenseCategories)p.expenseCategories=['飲食','交通','購物','住宿','其他'];
+        if(!p.currency)p.currency='JPY';
+        if(!p.themeColor)p.themeColor='#6C8EBF';
+        if(!p.tripThemes)p.tripThemes={};
+        if(!p.fontFamily)p.fontFamily="'Zen Maru Gothic'";
+        if(!p.fontSize)p.fontSize='16px'; // 🎯 預設為中等字體
+        if(!p.tripDocs)p.tripDocs={};
+        this.privateData=p;
+    }
+    this.applySettings();
+},
+savePrivateData(){localStorage.setItem('HAMAR_PRIVATE_'+this.safeRoomKey,JSON.stringify(this.privateData));},
+exportPrivateData(){const link=document.createElement('a');link.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(this.privateData));link.download=`私人資料備份.json`;link.click();},
+importPrivateData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{this.privateData=JSON.parse(ev.target.result);this.savePrivateData();location.reload();};r.readAsText(f);},
+
+getPrivateSpotData(id){
+    if(!this.privateData.spotNotes) this.privateData.spotNotes={};
+    if(!this.privateData.spotNotes[id]) this.privateData.spotNotes[id]={journal:'', photos:[], isEditing: true}; 
+    if(this.privateData.spotNotes[id].isEditing === undefined) this.privateData.spotNotes[id].isEditing = false;
+    return this.privateData.spotNotes[id];
+},
+toggleJournalEdit(id) {
+    const data = this.getPrivateSpotData(id);
+    data.isEditing = !data.isEditing;
+    this.savePrivateData();
+},
+uploadPrivatePhoto(id,e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{this.getPrivateSpotData(id).photos.push(ev.target.result);this.savePrivateData();};r.readAsDataURL(f);},
+
+getPrivateTripData(id){return this.privateData.tripDocs[id];},uploadPrivateTripImage(p,e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{const d=this.getPrivateTripData(this.activeTrip.id);if(p==='vjwImage')d.vjwImage=ev.target.result;else d.flights[p].eTicketImage=ev.target.result;this.savePrivateData();};r.readAsDataURL(f);},removePrivateTripImage(p){const d=this.getPrivateTripData(this.activeTrip.id);if(p==='vjwImage')d.vjwImage=null;else d.flights[p].eTicketImage=null;this.savePrivateData();},importFlightQR(dir){const m=prompt(`請貼上【${dir==='outbound'?'去程':'回程'}】機票 QR Code：\n(格式: BR116|TPE|2026-02-20T09:30|CTS|2026-02-20T14:05|X7A9B)`);if(m){const p=m.split('|');if(p.length>=6){const d=this.getPrivateTripData(this.activeTrip.id);d.flights[dir].flightNo=p[0];d.flights[dir].depAirport=p[1];d.flights[dir].depTime=p[2];d.flights[dir].arrAirport=p[3];d.flights[dir].arrTime=p[4];d.flights[dir].bookingRef=p[5];this.savePrivateData();alert('機票資料匯入成功！');}}},
+getPackingItems(c){return this.privateData.packing.filter(i=>i.category===c);},addPackingCategory(){const c=prompt("新增分類名稱：");if(c){this.privateData.packingCategories.push(c);this.savePrivateData();}},deletePackingCategory(c){if(confirm("刪除此分類？")){this.privateData.packingCategories=this.privateData.packingCategories.filter(x=>x!==c);this.privateData.packing=this.privateData.packing.filter(p=>p.category!==c);this.savePrivateData();}},addPackingItem(c){const i=document.getElementById('input-'+c);if(i.value.trim()){this.privateData.packing.push({id:Date.now(),category:c,name:i.value.trim(),checked:!1});i.value='';this.savePrivateData();}},removePackingItem(id){this.privateData.packing=this.privateData.packing.filter(i=>i.id!==id);this.savePrivateData();},
+addDoc(){this.activeTrip.dynamicDocs.push({id:Date.now(),name:'',link:''});},removeDoc(i){if(confirm("確定刪除嗎？")){this.activeTrip.dynamicDocs.splice(i,1);this.saveTripToCloud();}},
+addExpenseCategory(){const c=prompt("新增專屬記帳分類：");if(c){this.privateData.expenseCategories.push(c);this.savePrivateData();}},async fetchRealtimeRate(){try{const r=await fetch(`https://api.exchangerate-api.com/v4/latest/TWD`);const d=await r.json();const rate=d.rates[this.privateData.currency];if(rate){this.privateData.exchangeRate=Number((1/rate).toFixed(4));this.savePrivateData();alert(`已更新最新匯率！`);}}catch(e){alert("網路連線失敗");}},
+saveExpense(){if(!this.newExpense.name||!this.newExpense.amount)return alert("請填寫品項與金額");try{this.newExpense.amount=parseFloat(new Function('return '+String(this.newExpense.amount).replace(/[^0-9+\-*/.()]/g,''))());}catch(e){return alert("算式格式錯誤！");}if(this.isEditingExpense){const idx=this.privateData.expenses.findIndex(e=>e.id===this.editingExpenseId);if(idx!==-1)this.privateData.expenses[idx]={...this.privateData.expenses[idx],...this.newExpense};this.isEditingExpense=!1;this.editingExpenseId=null;}else{this.privateData.expenses.push({id:Date.now(),...this.newExpense,photo:null});}this.newExpense={inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:this.activeTrip.startDate||''};this.savePrivateData();},editExpense(e){this.isEditingExpense=!0;this.editingExpenseId=e.id;this.newExpense={inout:e.inout||'支出',mainCat:e.mainCat||e.type,subCat:e.subCat||'',name:e.name,amount:e.amount,payMethod:e.payMethod||'現金',bank:e.bank||'',date:e.date||''};},cancelEditExpense(){this.isEditingExpense=!1;this.editingExpenseId=null;this.newExpense={inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:this.activeTrip.startDate||''};},deleteExpense(id){if(confirm("刪除這筆開支？")){this.privateData.expenses=this.privateData.expenses.filter(e=>e.id!==id);this.savePrivateData();}},uploadExpensePhoto(e,ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=(x)=>{e.photo=x.target.result;this.savePrivateData();};r.readAsDataURL(f);},exportExpenseToCSV(){if(this.privateData.expenses.length===0)return alert("目前沒有帳目可以匯出喔！");let c="類型,日期,主分類,子分類,品項,支付方式,銀行卡名,外幣金額,台幣金額(預估)\n";this.privateData.expenses.forEach(e=>{const t=Math.round(e.amount*this.privateData.exchangeRate);c+=`${e.inout||'支出'},${e.date||''},${e.mainCat||e.type||''},${e.subCat||''},${e.name},${e.payMethod||'現金'},${e.bank||''},${e.amount},${t}\n`;});const l=document.createElement("a");l.href=URL.createObjectURL(new Blob(["\uFEFF"+c],{type:'text/csv;charset=utf-8;'}));l.download=`旅遊記帳匯出.csv`;l.click();},
+openNewSpotModal(){if(this.userRole==='admin'){this.isEditingSpot=!1;this.newSpot={type:'景點',name:'',desc:'',startTime:'',stayTime:'1.5h',transitTime:'',transitMethod:'自行開車',parkingInfo:'',transitSuggestion:''};this.showSpotModal=!0;}},editSpotInit(d,i){if(this.userRole==='admin'){this.isEditingSpot=!0;this.editSpotIndex=i;this.newSpot=JSON.parse(JSON.stringify(this.activeTrip.itinerary[d][i]));this.showSpotModal=!0;}},saveSpot(){if(!this.newSpot.name)return;if(!this.activeTrip.itinerary[this.currentDay])this.activeTrip.itinerary[this.currentDay]=[];let tags=this.newSpot.tagsInput?this.newSpot.tagsInput.split(',').map(t=>t.trim()).filter(t=>t):[];const f={id:this.isEditingSpot?this.newSpot.id:'s'+Date.now(),...this.newSpot,tags:tags};if(this.isEditingSpot){this.activeTrip.itinerary[this.currentDay][this.editSpotIndex]=f;}else{this.activeTrip.itinerary[this.currentDay].push(f);}this.activeTrip.itinerary[this.currentDay].sort((a,b)=>(a.startTime||'').localeCompare(b.startTime||''));this.saveTripToCloud();this.showSpotModal=!1;},deleteSpot(i){if(confirm("確定刪除行程點？")){this.activeTrip.itinerary[this.currentDay].splice(i,1);this.saveTripToCloud();}},
+getMapsLink(d,i){const dest=this.activeTrip.itinerary[d][i].name;if(i===0)return `https://www.google.com/maps/search/?api=1&query=?q=......{encodeURIComponent(dest)}`;const origin=this.activeTrip.itinerary[d][i-1].name;const mode=this.activeTrip.itinerary[d][i].transitMethod==='大眾運輸'?'transit':'driving';return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=${mode}`;},dragStart(d,i,e){if(this.userRole==='admin'){this.draggedDay=d;this.draggedIndex=i;e.dataTransfer.effectAllowed='move';}},dragOver(i,e){if(this.userRole==='admin')this.dragOverIndex=i;},dragDrop(d,di){if(this.userRole==='admin'&&this.draggedDay===d&&this.draggedIndex!==di){const i=this.activeTrip.itinerary[d].splice(this.draggedIndex,1)[0];this.activeTrip.itinerary[d].splice(di,0,i);this.saveTripToCloud();}this.draggedIndex=null;this.dragOverIndex=null;},
+
+importPastedData(){
+    if(this.userRole!=='admin')return;
+    if(!this.pastedCsvData.trim())return alert("請貼上資料");
+    Papa.parse(this.pastedCsvData,{
+        delimiter:'\t',header:!0,skipEmptyLines:'greedy',
+        complete:(r)=>{
+            let c=0;
+            let md=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;
+            r.data.forEach(row=>{
+                const k=Object.keys(row);
+                const fk=(w)=>k.find(x=>w.some(y=>x.toLowerCase().includes(y)));
+                const nk=fk(['名稱','景點','name']),dk=fk(['天','day','日期']),tk=fk(['時','time','時間']);
+                if(nk&&row[nk].trim()!==''){
+                    let td=dk?parseInt(String(row[dk]).replace(/\D/g,'')):NaN;
+                    if(isNaN(td)||td<=0)td=this.currentDay;
+                    if(!this.activeTrip.days.includes(td)){
+                        for(let d=md+1;d<=td;d++){
+                            if(!this.activeTrip.days.includes(d)){
+                                this.activeTrip.days.push(d);
+                                this.activeTrip.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};
+                            }
+                        }
+                        md=Math.max(md,td);
+                    }
+                    if(!this.activeTrip.itinerary[td])this.activeTrip.itinerary[td]=[];
+                    const methodKey = fk(['方式', '大眾', '開車', 'transport']);
+                    let tMethod = this.defaultImportTransitMethod;
+                    if (methodKey) {
+                        const cellValue = String(row[methodKey]);
+                        if (cellValue.match(/大眾|公車|捷運|地鐵|火車|巴士/)) tMethod = '大眾運輸';
+                        else if (cellValue.match(/開車|自駕/)) tMethod = '自行開車';
+                    }
+                    this.activeTrip.itinerary[td].push({
+                        id:'s'+Date.now()+Math.random(),
+                        type:fk(['分類','類別'])?row[fk(['分類','類別'])]:'景點',
+                        name:row[nk].trim(),
+                        desc:fk(['描述','說明'])?row[fk(['描述','說明'])]:'',
+                        startTime:(tk&&row[tk])?String(row[tk]).trim():'09:00',
+                        stayTime:fk(['停留'])?row[fk(['停留'])]:'1.5h',
+                        tags:fk(['標籤'])?String(row[fk(['標籤'])]).split(','):[],
+                        photoTips:fk(['拍照'])?row[fk(['拍照'])]:'',
+                        parkingInfo:fk(['停車'])?row[fk(['停車'])]:'',
+                        transitTime:fk(['交通時間','交通','耗時'])?row[fk(['交通時間','交通','耗時'])]:'',
+                        transitMethod: tMethod,
+                        transitSuggestion: fk(['如何前往','交通建議','搭乘']) ? row[fk(['如何前往','交通建議','搭乘'])] : ''
+                    });
+                    c++;
+                }
+            });
+            this.activeTrip.days.sort((a,b)=>a-b);
+            if(c===0)alert("未找到行程");
+            else{alert(`匯入 ${c} 筆行程！`);this.pastedCsvData='';this.saveTripToCloud();}
+        }
+    });
+},
+logoutRoom(){
+    localStorage.removeItem('myTravelRoomKey_Raw');
+    localStorage.removeItem('myTravelRoomKey_Safe');
+    localStorage.removeItem('myTravelRole');
+    location.reload();
+},
+deleteTrip(t){if(this.userRole!=='admin')return;if(!confirm(`確定要刪除「${t.name}」嗎？\n⚠️ 此操作將永久刪除雲端行程，無法復原！`))return;this.trips=this.trips.filter(x=>x.id!==t.id);this.saveTripToCloud();if(this.privateData.tripDocs&&this.privateData.tripDocs[t.id]){delete this.privateData.tripDocs[t.id];}if(this.privateData.tripThemes&&this.privateData.tripThemes[t.id]){delete this.privateData.tripThemes[t.id];}this.savePrivateData();},
+editTripName(t){const n=prompt("名",t.name);if(n){t.name=n;this.saveTripToCloud();}},
+addDay(){const m=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;const n=m+1;this.activeTrip.days.push(n);this.activeTrip.itinerary[n]=[];this.activeTrip.dailyHeaders[n]={wear:'',snow:'',isEditing:!1};this.currentDay=n;this.saveTripToCloud();},
+removeDay(){if(this.userRole!=='admin')return;const m=Math.max(...this.activeTrip.days);if(m<=1) return alert("行程至少需保留一天喔！");const hasItinerary = this.activeTrip.itinerary[m] && this.activeTrip.itinerary[m].length > 0;const msg = hasItinerary ? `Day ${m} 裡面還有行程喔！確定要強制刪除嗎？` : `確定要刪除 Day ${m} 嗎？`;if(confirm(msg)){this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);delete this.activeTrip.itinerary[m];delete this.activeTrip.dailyHeaders[m];if(this.currentDay === m) this.currentDay = Math.max(...this.activeTrip.days);this.saveTripToCloud();}}
+}}).mount('#app')
 </script>
 </body>
 </html>
