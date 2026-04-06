@@ -835,7 +835,7 @@ async processReceipt(base64Image, mediaType) {
                 contents: [{
                     parts: [
                         { text: 'Please analyze this receipt or invoice image carefully. Extract the fields below and reply ONLY with a valid JSON object — no markdown, no code fences, no extra text:\n{"total_amount": <number or null>, "date": "<YYYY-MM-DD or null>", "name": "<short item or store name under 20 chars, in Traditional Chinese if possible, or null>"}\nRules:\n- total_amount: final payable total only (number, no currency symbols)\n- date: if only month/day visible, prepend current year\n- name: most representative product or store name\n- Use null for any field you cannot confidently read' },
-                        { inline_data: { mime_type: safeMediaType, data: base64Image } }
+                        { inlineData: { mimeType: safeMediaType, data: base64Image } }
                     ]
                 }]
             })
