@@ -35,6 +35,39 @@
         .spot-done-badge { display: inline-flex; align-items: center; gap: 3px; background: #22c55e; color: white; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
         @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .offline-pulse { animation: pulse-red 1.5s infinite; }
+
+        /* 心情轉向燈 🎡 — swipe card stack */
+        .spot-swipe-wrapper { position: relative; overflow: hidden; border-radius: 24px; }
+        .spot-swipe-card {
+            width: 100%; transition: transform 0.35s cubic-bezier(.25,.46,.45,.94), opacity 0.35s ease;
+            will-change: transform; touch-action: pan-y;
+            cursor: grab;
+        }
+        .spot-swipe-card:active { cursor: grabbing; }
+        .spot-swipe-card.is-swiping { transition: none; }
+        /* Hint label that fades in while swiping */
+        .swipe-hint-label {
+            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+            background: rgba(108,142,191,0.88); color: white;
+            font-size: 11px; font-weight: bold; padding: 4px 14px; border-radius: 20px;
+            pointer-events: none; white-space: nowrap;
+            opacity: 0; transition: opacity 0.2s ease; z-index: 10;
+        }
+        .spot-swipe-wrapper.hinting .swipe-hint-label { opacity: 1; }
+        /* Pagination dots */
+        .plan-dots { display: flex; gap: 5px; justify-content: center; margin-top: 8px; }
+        .plan-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #d1dbe8; transition: background 0.25s, transform 0.25s;
+        }
+        .plan-dot.active { background: #6C8EBF; transform: scale(1.3); }
+        /* Alt plan tinted header strip */
+        .alt-plan-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(90deg,#a8d8a8,#c8e6c9);
+            color: #2d6a2d; font-size: 10px; font-weight: bold;
+            padding: 2px 10px; border-radius: 20px; margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -159,73 +192,125 @@
                                 <span :class="hasTimeConflict(currentDay, index) ? 'bg-red-100 text-red-500' : 'bg-gray-100'" class="px-2 py-0.5 rounded-full my-1 font-bold text-[10px]">{{ spot.transitMethod === '大眾運輸' ? '🚇' : '🚗' }} 約 {{ spot.transitTime }} {{ hasTimeConflict(currentDay, index) ? '⚠️ 時間重疊囉！' : '' }}</span>
                                 <span class="border-l-2 border-dashed border-gray-300 h-4"></span>
                             </div>
-                            
-                            <div class="japanese-card bg-white p-5 relative border-l-8 theme-border" :class="[{'cursor-move hover:shadow-md': userRole === 'admin'}, getPrivateSpotData(spot.id).checkedIn ? 'spot-done' : '']">
-                                <div class="absolute top-4 right-4 flex gap-3" v-if="userRole === 'admin'">
-                                    <button @click="editSpotInit(currentDay, index)" class="text-gray-300 theme-text font-bold transition text-xs">✎</button>
-                                    <button @click="deleteSpot(index)" class="text-gray-300 hover:text-red-500 font-bold transition">✕</button>
-                                </div>
-                                
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="bg-blue-100 theme-text text-[10px] px-2 py-1 rounded font-bold">{{ spot.type }}</span>
-                                    <span class="theme-bg text-[10px] px-2 py-1 rounded font-bold shadow-sm">{{ getDayDate(currentDay) }} {{ displayTimeRange(spot) }}</span>
-                                </div>
-                                <h3 class="text-lg font-bold text-gray-800 pr-12 leading-tight">
-                                    {{ spot.name }}
-                                    <span v-if="getPrivateSpotData(spot.id).checkedIn" class="spot-done-badge">✅ 已完成</span>
-                                </h3>
-                                <p class="text-gray-500 text-xs mt-1 leading-relaxed">{{ spot.desc }}</p>
-                                
-                                <div class="mt-3 space-y-1 bg-gray-50 p-3 rounded-xl text-xs" v-if="spot.photoTips || spot.parkingInfo || spot.transitSuggestion">
-                                    <p v-if="spot.photoTips" class="text-gray-600"><span class="font-bold text-pink-500">📸 拍照:</span> {{ spot.photoTips }}</p>
-                                    <p v-if="spot.parkingInfo" class="text-gray-600"><span class="font-bold text-green-600">🅿️ 資訊:</span> {{ spot.parkingInfo }}</p>
-                                    <p v-if="spot.transitSuggestion" class="text-gray-600"><span class="font-bold theme-text">🚇 搭乘:</span> {{ spot.transitSuggestion }}</p>
-                                </div>
-                                <div class="flex flex-wrap gap-1 mt-2" v-if="spot.tags && spot.tags.length > 0">
-                                    <span v-for="tag in spot.tags" :key="tag" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">#{{ tag }}</span>
-                                </div>
-                                <a :href="getMapsLink(currentDay, index)" target="_blank" class="block text-center w-full mt-4 bg-gray-50 border border-gray-100 theme-text py-2 rounded-xl text-xs font-bold transition hover:theme-bg">🗺️ 帶我去這裡！</a>
-                                
-                                <div class="mt-3 border-t border-gray-100 pt-3 flex items-center justify-between">
-                                    <button @click="toggleCheckin(spot.id)" :class="getPrivateSpotData(spot.id).checkedIn ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-500'" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition">
-                                        {{ getPrivateSpotData(spot.id).checkedIn ? '✅ 點點收集成功！' : '📍 打卡這個點點' }}
-                                    </button>
-                                    <div v-if="getPrivateSpotData(spot.id).checkedIn" class="flex gap-1">
-                                        <button v-for="star in 5" :key="star" @click="setSpotRating(spot.id, star)" :class="star <= (getPrivateSpotData(spot.id).rating||0) ? 'text-yellow-400' : 'text-gray-200'" class="text-lg transition hover:scale-110">★</button>
+
+                            <!-- 心情轉向燈 🎡 swipe wrapper -->
+                            <div class="spot-swipe-wrapper"
+                                 :ref="'swipe_'+spot.id"
+                                 @mousedown="swipeStart(spot.id, $event)"
+                                 @mousemove="swipeMove(spot.id, $event)"
+                                 @mouseup="swipeEnd(spot.id)"
+                                 @mouseleave="swipeEnd(spot.id)"
+                                 @touchstart.passive="swipeStart(spot.id, $event)"
+                                 @touchmove.passive="swipeMove(spot.id, $event)"
+                                 @touchend="swipeEnd(spot.id)">
+
+                                <!-- Hint label -->
+                                <div class="swipe-hint-label">感覺對了就轉彎～✨</div>
+
+                                <!-- Active plan card -->
+                                <div class="spot-swipe-card japanese-card bg-white p-5 relative border-l-8 theme-border"
+                                     :class="[{'cursor-move hover:shadow-md': userRole === 'admin'}, getPrivateSpotData(spot.id).checkedIn ? 'spot-done' : '']"
+                                     :style="getSwipeStyle(spot.id)">
+
+                                    <!-- Alt plan badge (shown when not on plan 0) -->
+                                    <div v-if="getActivePlanIndex(spot.id) > 0" class="alt-plan-badge">
+                                        🌿 點點靈感小分叉 #{{ getActivePlanIndex(spot.id) }}
                                     </div>
-                                </div>
-                                
-                                <div class="mt-3 border-t border-gray-100 pt-3">
-                                    <button @click="spot.showJournal = !spot.showJournal" class="text-[11px] font-bold theme-text flex items-center gap-1">{{ spot.showJournal ? '收起我的小日記 📖' : '📝 寫點點日記 / 傳照片' }}</button>
-                                    
-                                    <div v-if="spot.showJournal" class="mt-3 space-y-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="private-tag bg-gray-200 text-gray-600">🔒 只有我能看</span>
-                                            <button @click="toggleJournalEdit(spot.id)" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-bold theme-text transition">
-                                                {{ getPrivateSpotData(spot.id).isEditing ? '✅ 寫好囉！' : '✎ 繼續寫' }}
-                                            </button>
+
+                                    <div class="absolute top-4 right-4 flex gap-3" v-if="userRole === 'admin'">
+                                        <button @click="editSpotInit(currentDay, index)" class="text-gray-300 theme-text font-bold transition text-xs">✎</button>
+                                        <button @click="deleteSpot(index)" class="text-gray-300 hover:text-red-500 font-bold transition">✕</button>
+                                    </div>
+
+                                    <!-- Render active plan data -->
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="bg-blue-100 theme-text text-[10px] px-2 py-1 rounded font-bold">{{ getActivePlanData(spot).type || spot.type }}</span>
+                                        <span class="theme-bg text-[10px] px-2 py-1 rounded font-bold shadow-sm">{{ getDayDate(currentDay) }} {{ displayTimeRange(getActivePlanData(spot)) }}</span>
+                                    </div>
+                                    <h3 class="text-lg font-bold text-gray-800 pr-12 leading-tight">
+                                        {{ getActivePlanData(spot).name }}
+                                        <span v-if="getPrivateSpotData(spot.id).checkedIn" class="spot-done-badge">✅ 已完成</span>
+                                    </h3>
+                                    <p class="text-gray-500 text-xs mt-1 leading-relaxed">{{ getActivePlanData(spot).desc }}</p>
+
+                                    <div class="mt-3 space-y-1 bg-gray-50 p-3 rounded-xl text-xs" v-if="getActivePlanData(spot).photoTips || getActivePlanData(spot).parkingInfo || getActivePlanData(spot).transitSuggestion">
+                                        <p v-if="getActivePlanData(spot).photoTips" class="text-gray-600"><span class="font-bold text-pink-500">📸 拍照:</span> {{ getActivePlanData(spot).photoTips }}</p>
+                                        <p v-if="getActivePlanData(spot).parkingInfo" class="text-gray-600"><span class="font-bold text-green-600">🅿️ 資訊:</span> {{ getActivePlanData(spot).parkingInfo }}</p>
+                                        <p v-if="getActivePlanData(spot).transitSuggestion" class="text-gray-600"><span class="font-bold theme-text">🚇 搭乘:</span> {{ getActivePlanData(spot).transitSuggestion }}</p>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1 mt-2" v-if="getActivePlanData(spot).tags && getActivePlanData(spot).tags.length > 0">
+                                        <span v-for="tag in getActivePlanData(spot).tags" :key="tag" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">#{{ tag }}</span>
+                                    </div>
+                                    <a :href="getAltMapsLink(currentDay, index)" target="_blank" class="block text-center w-full mt-4 bg-gray-50 border border-gray-100 theme-text py-2 rounded-xl text-xs font-bold transition hover:theme-bg">🗺️ 帶我去這裡！</a>
+
+                                    <!-- Checkin & rating (always tied to main spot id) -->
+                                    <div class="mt-3 border-t border-gray-100 pt-3 flex items-center justify-between">
+                                        <button @click="toggleCheckin(spot.id)" :class="getPrivateSpotData(spot.id).checkedIn ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-500'" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                                            {{ getPrivateSpotData(spot.id).checkedIn ? '✅ 點點收集成功！' : '📍 打卡這個點點' }}
+                                        </button>
+                                        <div v-if="getPrivateSpotData(spot.id).checkedIn" class="flex gap-1">
+                                            <button v-for="star in 5" :key="star" @click="setSpotRating(spot.id, star)" :class="star <= (getPrivateSpotData(spot.id).rating||0) ? 'text-yellow-400' : 'text-gray-200'" class="text-lg transition hover:scale-110">★</button>
                                         </div>
-                                        
-                                        <div v-if="getPrivateSpotData(spot.id).isEditing">
-                                            <textarea v-model="getPrivateSpotData(spot.id).journal" @change="savePrivateData" placeholder="偷偷記下只有自己知道的事...🤫" class="w-full bg-white rounded-xl p-3 text-sm outline-none resize-none h-20 border border-gray-200 shadow-inner"></textarea>
-                                            <div class="flex flex-wrap gap-2 mt-2">
-                                                <div v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" class="relative w-14 h-14 rounded-lg overflow-hidden border">
-                                                    <img :src="img" class="w-full h-full object-cover">
-                                                    <button @click="getPrivateSpotData(spot.id).photos.splice(i,1);savePrivateData()" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[8px]">✕</button>
+                                    </div>
+
+                                    <div class="mt-3 border-t border-gray-100 pt-3">
+                                        <button @click="spot.showJournal = !spot.showJournal" class="text-[11px] font-bold theme-text flex items-center gap-1">{{ spot.showJournal ? '收起我的小日記 📖' : '📝 寫點點日記 / 傳照片' }}</button>
+                                        <div v-if="spot.showJournal" class="mt-3 space-y-3">
+                                            <div class="flex justify-between items-center">
+                                                <span class="private-tag bg-gray-200 text-gray-600">🔒 只有我能看</span>
+                                                <button @click="toggleJournalEdit(spot.id)" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-bold theme-text transition">
+                                                    {{ getPrivateSpotData(spot.id).isEditing ? '✅ 寫好囉！' : '✎ 繼續寫' }}
+                                                </button>
+                                            </div>
+                                            <div v-if="getPrivateSpotData(spot.id).isEditing">
+                                                <textarea v-model="getPrivateSpotData(spot.id).journal" @change="savePrivateData" placeholder="偷偷記下只有自己知道的事...🤫" class="w-full bg-white rounded-xl p-3 text-sm outline-none resize-none h-20 border border-gray-200 shadow-inner"></textarea>
+                                                <div class="flex flex-wrap gap-2 mt-2">
+                                                    <div v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" class="relative w-14 h-14 rounded-lg overflow-hidden border">
+                                                        <img :src="img" class="w-full h-full object-cover">
+                                                        <button @click="getPrivateSpotData(spot.id).photos.splice(i,1);savePrivateData()" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[8px]">✕</button>
+                                                    </div>
+                                                    <label class="w-14 h-14 flex items-center justify-center bg-gray-50 rounded-lg border border-dashed cursor-pointer text-gray-400 text-xl hover:bg-gray-100 transition">＋<input type="file" class="hidden" accept="image/*" @change="uploadPrivatePhoto(spot.id, $event)"></label>
                                                 </div>
-                                                <label class="w-14 h-14 flex items-center justify-center bg-gray-50 rounded-lg border border-dashed cursor-pointer text-gray-400 text-xl hover:bg-gray-100 transition">＋<input type="file" class="hidden" accept="image/*" @change="uploadPrivatePhoto(spot.id, $event)"></label>
+                                            </div>
+                                            <div v-else class="bg-gray-50 p-3 rounded-xl border border-gray-100 min-h-[4rem]">
+                                                <p class="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{{ getPrivateSpotData(spot.id).journal || '還沒有筆記～點右上角開始寫吧！✍️' }}</p>
+                                                <div class="flex flex-wrap gap-2 mt-2" v-if="getPrivateSpotData(spot.id).photos && getPrivateSpotData(spot.id).photos.length > 0">
+                                                    <img v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" :src="img" class="w-14 h-14 rounded-lg object-cover border shadow-sm">
+                                                </div>
                                             </div>
                                         </div>
-                                        
-                                        <div v-else class="bg-gray-50 p-3 rounded-xl border border-gray-100 min-h-[4rem]">
-                                             <p class="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{{ getPrivateSpotData(spot.id).journal || '還沒有筆記～點右上角開始寫吧！✍️' }}</p>
-                                             <div class="flex flex-wrap gap-2 mt-2" v-if="getPrivateSpotData(spot.id).photos && getPrivateSpotData(spot.id).photos.length > 0">
-                                                  <img v-for="(img, i) in getPrivateSpotData(spot.id).photos" :key="i" :src="img" class="w-14 h-14 rounded-lg object-cover border shadow-sm">
-                                             </div>
-                                        </div>
                                     </div>
+
+                                    <!-- Alt plan admin controls -->
+                                    <div v-if="userRole === 'admin'" class="mt-3 border-t border-gray-100 pt-3">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] font-bold text-gray-400">🎡 心情轉向燈</span>
+                                            <div class="flex gap-2">
+                                                <button v-if="(spot.altPlans||[]).length < 3"
+                                                    @click="openAltPlanModal(currentDay, index)"
+                                                    class="text-[10px] bg-green-50 text-green-600 border border-green-200 px-2 py-1 rounded-lg font-bold hover:bg-green-100 transition">
+                                                    ＋ 換個口味試試？🍦
+                                                </button>
+                                                <button v-if="(spot.altPlans||[]).length > 0 && getActivePlanIndex(spot.id) > 0"
+                                                    @click="deleteAltPlan(currentDay, index, getActivePlanIndex(spot.id))"
+                                                    class="text-[10px] bg-red-50 text-red-400 border border-red-100 px-2 py-1 rounded-lg font-bold hover:bg-red-100 transition">
+                                                    移除此分叉
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Swipe instruction hint -->
+                                        <p v-if="(spot.altPlans||[]).length > 0" class="text-[10px] text-gray-400 font-bold mt-1.5 text-center">← 左右滑動卡片切換方案 →</p>
+                                    </div>
+                                </div><!-- end spot-swipe-card -->
+
+                                <!-- Pagination dots -->
+                                <div class="plan-dots" v-if="(spot.altPlans||[]).length > 0">
+                                    <div class="plan-dot" :class="getActivePlanIndex(spot.id) === 0 ? 'active' : ''"></div>
+                                    <div v-for="(ap, ai) in (spot.altPlans||[])" :key="ai"
+                                         class="plan-dot" :class="getActivePlanIndex(spot.id) === ai+1 ? 'active' : ''"></div>
                                 </div>
-                            </div>
+
+                            </div><!-- end spot-swipe-wrapper -->
                         </div>
                         </div></div>
                     <div v-else class="text-center text-gray-400 py-8 font-bold text-sm">這天的點點還空空的，快來安排吧！🌟</div>
@@ -569,6 +654,39 @@
             <div class="flex gap-3 mt-6"><button @click="showSpotModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-2 rounded-xl font-bold">取消</button><button @click="saveSpot" class="w-1/2 theme-bg py-2 rounded-xl font-bold shadow-md">收藏這個點點 🐾</button></div>
         </div>
     </div>
+
+    <!-- 心情轉向燈：新增備案 Modal -->
+    <div v-if="showAltPlanModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">🌿</span>
+                <h3 class="text-xl font-bold theme-text">點點靈感小分叉</h3>
+            </div>
+            <p class="text-xs text-gray-500 font-bold mb-4">為這個景點新增一個備案方案，之後可以左右滑動切換 🎡</p>
+            <div class="space-y-3">
+                <div class="flex gap-2">
+                    <div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">類型</label><select v-model="newAltPlan.type" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"><option>景點</option><option>美食</option><option>交通</option><option>住宿</option><option>購物</option></select></div>
+                    <div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">開始時間</label><input v-model="newAltPlan.startTime" type="text" placeholder="09:00" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div>
+                    <div class="w-1/3"><label class="text-[11px] text-gray-500 font-bold block mb-1">預計停留</label><input v-model="newAltPlan.stayTime" placeholder="1.5h" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold"></div>
+                </div>
+                <div><label class="text-[11px] text-gray-500 font-bold block mb-1">備案地點名稱 🌿</label><input v-model="newAltPlan.name" type="text" placeholder="例：森林步道、老街市集..." class="w-full bg-gray-100 rounded-xl p-2 text-sm outline-none font-bold"></div>
+                <div><label class="text-[11px] text-gray-500 font-bold block mb-1">描述 / 小備註</label><textarea v-model="newAltPlan.desc" placeholder="這個方向感覺怎麼樣？" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none resize-none h-16 font-bold"></textarea></div>
+                <div>
+                    <label class="text-[11px] text-blue-500 font-bold block mb-1">🚗 交通 / 停車：</label>
+                    <div class="flex gap-2 mb-2">
+                        <select v-model="newAltPlan.transitMethod" class="w-1/3 bg-blue-50 text-blue-700 rounded-xl p-2 text-xs outline-none font-bold"><option>自行開車</option><option>大眾運輸</option></select>
+                        <input v-model="newAltPlan.transitTime" type="text" placeholder="花費時間（例: 20min）" class="w-2/3 bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold">
+                    </div>
+                    <input v-if="newAltPlan.transitMethod==='自行開車'" v-model="newAltPlan.parkingInfo" type="text" placeholder="🅿️ 停車資訊..." class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold">
+                    <input v-if="newAltPlan.transitMethod==='大眾運輸'" v-model="newAltPlan.transitSuggestion" type="text" placeholder="🚇 怎麼搭過去？" class="w-full bg-gray-100 rounded-xl p-2 text-xs outline-none font-bold">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button @click="showAltPlanModal=false" class="w-1/2 bg-gray-200 text-gray-600 py-2 rounded-xl font-bold">再想想</button>
+                <button @click="saveAltPlan" class="w-1/2 theme-bg py-2 rounded-xl font-bold shadow-md">加入分叉 🌿</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -595,7 +713,15 @@ packingTemplates:[
     {icon:'🌴',name:'海島度假',desc:'泳衣、防曬、浮潛裝備等',categories:{海灘裝備:['泳衣/泳褲','防曬乳SPF50+','浮潛面鏡','海灘拖鞋','防水袋'],海島衣物:['輕薄短袖x5','短褲x3','防曬外套','涼鞋']}},
     {icon:'❄️',name:'滑雪/雪地',desc:'保暖衣物、防水外套、雪靴等',categories:{保暖層:['發熱衣x3','厚毛衣','羽絨背心','保暖襪x5'],防水外層:['防水雪衣','雪褲','手套','毛帽','圍巾'],雪地裝備:['雪靴','暖暖包x10','護目鏡']}},
     {icon:'🏙️',name:'城市觀光',desc:'舒適步行鞋、多層次穿搭等',categories:{城市衣物:['休閒上衣x4','長褲x2','薄外套','舒適球鞋'],必帶文件:['護照','信用卡','國際駕照','旅遊保險單'],城市小物:['折疊雨傘','行動電源','耳機','轉接頭']}},
-]}},
+],
+// 心情轉向燈 state
+showAltPlanModal: false,
+altPlanTargetDay: null,
+altPlanTargetIndex: null,
+newAltPlan: {type:'景點', name:'', desc:'', startTime:'', stayTime:'1.5h', transitMethod:'自行開車', transitTime:'', parkingInfo:'', transitSuggestion:'', tags:[], photoTips:''},
+spotActivePlan: {},   // { spotId: planIndex } — 0 = original, 1+ = altPlans[n-1]
+swipeState: {},       // { spotId: { startX, currentX, isSwiping } }
+}},
 computed:{itinerarySpots(){if(!this.activeTrip||!this.activeTrip.itinerary)return[];let s=new Set();Object.values(this.activeTrip.itinerary).forEach(d=>{d.forEach(x=>{if(x.name)s.add(x.name);});});return Array.from(s);},uniqueExpenseDates(){if(!this.privateData.expenses)return[];return [...new Set(this.privateData.expenses.map(e=>e.date||'未填日期'))].sort((a,b)=>{if(a==='未填日期')return 1;if(b==='未填日期')return -1;return a.localeCompare(b);});},filteredExpenses(){if(!this.privateData.expenses)return[];return this.privateData.expenses.filter(e=>{const mC=this.expenseFilter==='全部'||e.mainCat===this.expenseFilter;const mD=this.expenseDateFilter==='全部'||(e.date||'未填日期')===this.expenseDateFilter;return mC&&mD;});},filteredTotalForeign(){return this.filteredExpenses.filter(e=>(e.currency||this.privateData.currency)===this.privateData.currency).reduce((s,e)=>s+(e.inout==='收入'?-Number(e.amount):Number(e.amount)),0);},currencyBreakdown(){const map={};this.filteredExpenses.forEach(e=>{const cur=e.currency||this.privateData.currency;const amt=e.inout==='收入'?-Number(e.amount):Number(e.amount);if(!map[cur])map[cur]={total:0,twdTotal:0};map[cur].total+=amt;const rate=this.privateData.exchangeRates?.[cur]??this.privateData.exchangeRate;map[cur].twdTotal+=amt*rate;});return Object.entries(map).map(([cur,v])=>({currency:cur,total:v.total,twdTotal:v.twdTotal})).sort((a,b)=>b.twdTotal-a.twdTotal);},
 splitTotalTWD(){return this.privateData.expenses.filter(e=>this.splitSelected.includes(e.id)).reduce((s,e)=>{const cur=e.currency||this.privateData.currency;const rate=this.privateData.exchangeRates?.[cur]??this.privateData.exchangeRate;return s+Number(e.amount)*rate;},0);}},
 mounted(){const r=localStorage.getItem('myTravelRoomKey_Raw'),s=localStorage.getItem('myTravelRoomKey_Safe');if(r&&s){this.roomInput=r;this.safeRoomKey=s;this.userRole=localStorage.getItem('myTravelRole')||'admin';this.initFirebase(this.safeRoomKey);this.loadPrivateData();this.isLoggedIn=!0;}this.applySettings();},
@@ -1036,6 +1162,140 @@ applyPackingTemplate(tpl){
 },
 // ⑧ 快速記帳填入
 applyQuickExpense(q){this.newExpense.name=q.name;this.newExpense.mainCat=q.mainCat;this.newExpense.subCat=q.subCat||'';},
+// ——— 心情轉向燈 🎡 methods ———
+
+// Get current active plan index for a spot (0 = original)
+getActivePlanIndex(spotId){
+    return this.spotActivePlan[spotId] || 0;
+},
+
+// Get the data object of the currently active plan (original or alt)
+getActivePlanData(spot){
+    const idx = this.getActivePlanIndex(spot.id);
+    if(idx === 0 || !spot.altPlans || !spot.altPlans[idx-1]) return spot;
+    return spot.altPlans[idx-1];
+},
+
+// onPlanSwitch: called when plan switches, updates navigation target
+onPlanSwitch(spot){
+    const plan = this.getActivePlanData(spot);
+    // Navigation link automatically uses getAltMapsLink which reads active plan
+    // Here we can emit future hooks — e.g. update a shared map marker
+    console.log(`[轉向燈] 切換到: ${plan.name}`);
+},
+
+// Build maps link for currently active plan
+getAltMapsLink(day, index){
+    const spots = this.activeTrip.itinerary[day];
+    const spot = spots[index];
+    const activePlan = this.getActivePlanData(spot);
+    const dest = activePlan.name || spot.name;
+    if(index === 0) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`;
+    const prevSpot = spots[index-1];
+    const origin = this.getActivePlanData(prevSpot).name || prevSpot.name;
+    const method = activePlan.transitMethod || spot.transitMethod;
+    const mode = method === '大眾運輸' ? 'transit' : 'driving';
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=${mode}`;
+},
+
+// Open alt plan creation modal
+openAltPlanModal(day, index){
+    if(this.userRole !== 'admin') return;
+    this.altPlanTargetDay = day;
+    this.altPlanTargetIndex = index;
+    this.newAltPlan = {type:'景點', name:'', desc:'', startTime:'', stayTime:'1.5h', transitMethod:'自行開車', transitTime:'', parkingInfo:'', transitSuggestion:'', tags:[], photoTips:''};
+    this.showAltPlanModal = true;
+},
+
+// Save new alt plan to spot.altPlans array
+saveAltPlan(){
+    if(!this.newAltPlan.name) return alert('請輸入備案地點名稱喔！🌿');
+    const spot = this.activeTrip.itinerary[this.altPlanTargetDay][this.altPlanTargetIndex];
+    if(!spot.altPlans) spot.altPlans = [];
+    spot.altPlans.push({...this.newAltPlan, id: 'alt_' + Date.now()});
+    this.saveTripToCloud();
+    this.showAltPlanModal = false;
+    // Auto-switch to the newly added plan
+    const newIdx = spot.altPlans.length;
+    this.$set ? this.$set(this.spotActivePlan, spot.id, newIdx) : (this.spotActivePlan = {...this.spotActivePlan, [spot.id]: newIdx});
+},
+
+// Delete an alt plan by index (1-based to match activePlanIndex)
+deleteAltPlan(day, index, planIdx){
+    if(!confirm('確定要移除這個分叉方案嗎？')) return;
+    const spot = this.activeTrip.itinerary[day][index];
+    spot.altPlans.splice(planIdx - 1, 1);
+    // Reset to original plan
+    this.spotActivePlan = {...this.spotActivePlan, [spot.id]: 0};
+    this.saveTripToCloud();
+},
+
+// ——— Swipe gesture handlers ———
+_getClientX(e){ return e.touches ? e.touches[0].clientX : e.clientX; },
+
+swipeStart(spotId, e){
+    // Don't start swipe on buttons/inputs
+    if(e.target.closest('button,input,textarea,a,label,select')) return;
+    this.swipeState = {...this.swipeState, [spotId]: {startX: this._getClientX(e), currentX: this._getClientX(e), isSwiping: true}};
+    const card = this.$refs['swipe_' + spotId];
+    if(card) { card.querySelector('.spot-swipe-card')?.classList.add('is-swiping'); }
+},
+
+swipeMove(spotId, e){
+    const s = this.swipeState[spotId];
+    if(!s || !s.isSwiping) return;
+    const cx = this._getClientX(e);
+    this.swipeState = {...this.swipeState, [spotId]: {...s, currentX: cx}};
+    const dx = cx - s.startX;
+    const wrapper = this.$refs['swipe_' + spotId];
+    if(wrapper){
+        const card = wrapper.querySelector('.spot-swipe-card');
+        if(card) card.style.transform = `translateX(${dx * 0.4}px) rotate(${dx * 0.015}deg)`;
+        // Show hint label when swiping enough
+        if(Math.abs(dx) > 30) wrapper.classList.add('hinting');
+        else wrapper.classList.remove('hinting');
+    }
+},
+
+swipeEnd(spotId){
+    const s = this.swipeState[spotId];
+    if(!s || !s.isSwiping) return;
+    const dx = s.currentX - s.startX;
+    const wrapper = this.$refs['swipe_' + spotId];
+    if(wrapper){
+        const card = wrapper.querySelector('.spot-swipe-card');
+        if(card){ card.classList.remove('is-swiping'); card.style.transform = ''; }
+        wrapper.classList.remove('hinting');
+    }
+    // Find the spot to know total plan count
+    let spot = null;
+    if(this.activeTrip && this.activeTrip.itinerary){
+        for(const day of Object.values(this.activeTrip.itinerary)){
+            const found = day.find(sp => sp.id === spotId);
+            if(found){ spot = found; break; }
+        }
+    }
+    if(spot && Math.abs(dx) > 60){
+        const totalPlans = 1 + (spot.altPlans ? spot.altPlans.length : 0);
+        let current = this.getActivePlanIndex(spotId);
+        if(dx < 0) current = (current + 1) % totalPlans;       // swipe left → next plan
+        else current = (current - 1 + totalPlans) % totalPlans; // swipe right → prev plan
+        this.spotActivePlan = {...this.spotActivePlan, [spotId]: current};
+        this.onPlanSwitch(spot);
+    }
+    this.swipeState = {...this.swipeState, [spotId]: {startX:0, currentX:0, isSwiping:false}};
+},
+
+// Compute card transform style (reactive)
+getSwipeStyle(spotId){
+    const s = this.swipeState[spotId];
+    if(!s || !s.isSwiping) return {};
+    const dx = s.currentX - s.startX;
+    return { transform: `translateX(${dx*0.4}px) rotate(${dx*0.015}deg)` };
+},
+
+// ——— end 心情轉向燈 methods ———
+
 deleteTrip(t){if(this.userRole!=='admin')return;if(!confirm(`確定要刪除「${t.name}」嗎？\n⚠️ 這個點點旅程將永久消失，無法復原！`))return;this.trips=this.trips.filter(x=>x.id!==t.id);this.saveTripToCloud();if(this.privateData.tripDocs&&this.privateData.tripDocs[t.id]){delete this.privateData.tripDocs[t.id];}if(this.privateData.tripThemes&&this.privateData.tripThemes[t.id]){delete this.privateData.tripThemes[t.id];}this.savePrivateData();},
 editTripName(t){const n=prompt("幫這趟旅程取個新名字：",t.name);if(n){t.name=n;this.saveTripToCloud();}},
 addDay(){const m=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;const n=m+1;this.activeTrip.days.push(n);this.activeTrip.itinerary[n]=[];this.activeTrip.dailyHeaders[n]={wear:'',snow:'',isEditing:!1};this.currentDay=n;this.saveTripToCloud();},
