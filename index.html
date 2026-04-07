@@ -37,23 +37,32 @@
         .offline-pulse { animation: pulse-red 1.5s infinite; }
 
         /* 心情轉向燈 🎡 — swipe card stack */
-        .spot-swipe-wrapper { position: relative; overflow: hidden; border-radius: 24px; }
+        .spot-swipe-wrapper { position: relative; overflow: visible; border-radius: 24px; }
         .spot-swipe-card {
-            width: 100%; transition: transform 0.35s cubic-bezier(.25,.46,.45,.94), opacity 0.35s ease;
+            width: 100%;
+            /* UPDATE: Task1 — elastic spring curve for Tinder-like feel */
+            transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
             will-change: transform; touch-action: pan-y;
             cursor: grab;
         }
         .spot-swipe-card:active { cursor: grabbing; }
+        /* UPDATE: Task3 — remove transition only during active drag, restore on release */
         .spot-swipe-card.is-swiping { transition: none; }
-        /* Hint label that fades in while swiping */
+        /* UPDATE: Task1 — dual-track directional hint labels */
         .swipe-hint-label {
-            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-            background: rgba(108,142,191,0.88); color: white;
-            font-size: 11px; font-weight: bold; padding: 4px 14px; border-radius: 20px;
+            position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
+            font-size: 11px; font-weight: bold; padding: 4px 16px; border-radius: 20px;
             pointer-events: none; white-space: nowrap;
             opacity: 0; transition: opacity 0.2s ease; z-index: 10;
         }
-        .spot-swipe-wrapper.hinting .swipe-hint-label { opacity: 1; }
+        .swipe-hint-left {
+            background: rgba(72,187,120,0.92); color: white;
+        }
+        .swipe-hint-right {
+            background: rgba(237,137,54,0.92); color: white;
+        }
+        .spot-swipe-wrapper.hinting-left .swipe-hint-left { opacity: 1; }
+        .spot-swipe-wrapper.hinting-right .swipe-hint-right { opacity: 1; }
         /* Pagination dots */
         .plan-dots { display: flex; gap: 5px; justify-content: center; margin-top: 8px; }
         .plan-dot {
@@ -61,12 +70,28 @@
             background: #d1dbe8; transition: background 0.25s, transform 0.25s;
         }
         .plan-dot.active { background: #6C8EBF; transform: scale(1.3); }
+        .plan-dot.gemini-dot { background: linear-gradient(135deg,#f6ad55,#ed8936); }
+        .plan-dot.gemini-dot.active { background: linear-gradient(135deg,#ed8936,#dd6b20); }
         /* Alt plan tinted header strip */
         .alt-plan-badge {
             display: inline-flex; align-items: center; gap: 4px;
             background: linear-gradient(90deg,#a8d8a8,#c8e6c9);
             color: #2d6a2d; font-size: 10px; font-weight: bold;
             padding: 2px 10px; border-radius: 20px; margin-bottom: 4px;
+        }
+        /* UPDATE: Task1 — Gemini suggestion badge */
+        .gemini-plan-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(90deg,#fbb68a,#f6ad55);
+            color: #7b4100; font-size: 10px; font-weight: bold;
+            padding: 2px 10px; border-radius: 20px; margin-bottom: 4px;
+        }
+        /* UPDATE: Task1 — Gemini loading shimmer */
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        .gemini-loading-card {
+            background: linear-gradient(90deg,#fff7ed,#fde8cc,#fff7ed);
+            background-size: 200% 100%; animation: shimmer 1.5s infinite;
+            border-radius: 24px; padding: 24px; text-align: center;
         }
     </style>
 </head>
@@ -198,23 +223,35 @@
                                  :ref="'swipe_'+spot.id"
                                  @mousedown="swipeStart(spot.id, $event)"
                                  @mousemove="swipeMove(spot.id, $event)"
-                                 @mouseup="swipeEnd(spot.id)"
-                                 @mouseleave="swipeEnd(spot.id)"
+                                 @mouseup="swipeEnd(spot.id, currentDay, index)"
+                                 @mouseleave="swipeCancel(spot.id)"
                                  @touchstart.passive="swipeStart(spot.id, $event)"
                                  @touchmove.passive="swipeMove(spot.id, $event)"
-                                 @touchend="swipeEnd(spot.id)">
+                                 @touchend="swipeEnd(spot.id, currentDay, index)">
 
-                                <!-- Hint label -->
-                                <div class="swipe-hint-label">感覺對了就轉彎～✨</div>
+                                <!-- UPDATE: Task1 — dual-track directional hint labels -->
+                                <div class="swipe-hint-label swipe-hint-left">⛺ 私藏小帳篷</div>
+                                <div class="swipe-hint-label swipe-hint-right">🎁 遇見小確幸</div>
 
-                                <!-- Active plan card -->
-                                <div class="spot-swipe-card japanese-card bg-white p-5 relative border-l-8 theme-border"
+                                <!-- UPDATE: Task1 — Gemini loading state card -->
+                                <div v-if="geminiLoading[spot.id]" class="gemini-loading-card">
+                                    <p class="text-sm font-bold text-orange-600 mb-1">✨ 正在幫你抓取靈感碎片...</p>
+                                    <p class="text-xs text-orange-400 font-bold">Gemini 正在感受當下的空氣 🌿</p>
+                                </div>
+
+                                <!-- Active plan card (hidden during Gemini loading) -->
+                                <div v-else
+                                     class="spot-swipe-card japanese-card bg-white p-5 relative border-l-8 theme-border"
                                      :class="[{'cursor-move hover:shadow-md': userRole === 'admin'}, getPrivateSpotData(spot.id).checkedIn ? 'spot-done' : '']"
                                      :style="getSwipeStyle(spot.id)">
 
-                                    <!-- Alt plan badge (shown when not on plan 0) -->
-                                    <div v-if="getActivePlanIndex(spot.id) > 0" class="alt-plan-badge">
-                                        🌿 點點靈感小分叉 #{{ getActivePlanIndex(spot.id) }}
+                                    <!-- UPDATE: Task1 — show correct badge per active track -->
+                                    <div v-if="getActivePlanIndex(spot.id) > 0 && getActivePlanIndex(spot.id) <= (spot.altPlans||[]).length" class="alt-plan-badge">
+                                        ⛺ 私藏小帳篷 #{{ getActivePlanIndex(spot.id) }}
+                                    </div>
+                                    <!-- UPDATE: Task1 — Gemini suggestion badge (plan index = altPlans.length + 1) -->
+                                    <div v-if="geminiSuggestion[spot.id] && getActivePlanIndex(spot.id) === (spot.altPlans||[]).length + 1" class="gemini-plan-badge">
+                                        🎁 Gemini 小確幸推薦
                                     </div>
 
                                     <div class="absolute top-4 right-4 flex gap-3" v-if="userRole === 'admin'">
@@ -232,6 +269,11 @@
                                         <span v-if="getPrivateSpotData(spot.id).checkedIn" class="spot-done-badge">✅ 已完成</span>
                                     </h3>
                                     <p class="text-gray-500 text-xs mt-1 leading-relaxed">{{ getActivePlanData(spot).desc }}</p>
+                                    <!-- UPDATE: Task1 — show cuteReason when on Gemini track -->
+                                    <p v-if="geminiSuggestion[spot.id] && getActivePlanIndex(spot.id) === (spot.altPlans||[]).length + 1"
+                                       class="text-[11px] text-orange-500 font-bold mt-2 bg-orange-50 px-3 py-2 rounded-xl">
+                                        💬 {{ geminiSuggestion[spot.id].cuteReason }}
+                                    </p>
 
                                     <div class="mt-3 space-y-1 bg-gray-50 p-3 rounded-xl text-xs" v-if="getActivePlanData(spot).photoTips || getActivePlanData(spot).parkingInfo || getActivePlanData(spot).transitSuggestion">
                                         <p v-if="getActivePlanData(spot).photoTips" class="text-gray-600"><span class="font-bold text-pink-500">📸 拍照:</span> {{ getActivePlanData(spot).photoTips }}</p>
@@ -243,7 +285,7 @@
                                     </div>
                                     <a :href="getAltMapsLink(currentDay, index)" target="_blank" class="block text-center w-full mt-4 bg-gray-50 border border-gray-100 theme-text py-2 rounded-xl text-xs font-bold transition hover:theme-bg">🗺️ 帶我去這裡！</a>
 
-                                    <!-- Checkin & rating (always tied to main spot id) -->
+                                    <!-- Checkin & rating -->
                                     <div class="mt-3 border-t border-gray-100 pt-3 flex items-center justify-between">
                                         <button @click="toggleCheckin(spot.id)" :class="getPrivateSpotData(spot.id).checkedIn ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-500'" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition">
                                             {{ getPrivateSpotData(spot.id).checkedIn ? '✅ 點點收集成功！' : '📍 打卡這個點點' }}
@@ -289,25 +331,31 @@
                                                 <button v-if="(spot.altPlans||[]).length < 3"
                                                     @click="openAltPlanModal(currentDay, index)"
                                                     class="text-[10px] bg-green-50 text-green-600 border border-green-200 px-2 py-1 rounded-lg font-bold hover:bg-green-100 transition">
-                                                    ＋ 換個口味試試？🍦
+                                                    ⛺ 加私藏帳篷
                                                 </button>
-                                                <button v-if="(spot.altPlans||[]).length > 0 && getActivePlanIndex(spot.id) > 0"
+                                                <button v-if="(spot.altPlans||[]).length > 0 && getActivePlanIndex(spot.id) > 0 && getActivePlanIndex(spot.id) <= (spot.altPlans||[]).length"
                                                     @click="deleteAltPlan(currentDay, index, getActivePlanIndex(spot.id))"
                                                     class="text-[10px] bg-red-50 text-red-400 border border-red-100 px-2 py-1 rounded-lg font-bold hover:bg-red-100 transition">
                                                     移除此分叉
                                                 </button>
                                             </div>
                                         </div>
-                                        <!-- Swipe instruction hint -->
-                                        <p v-if="(spot.altPlans||[]).length > 0" class="text-[10px] text-gray-400 font-bold mt-1.5 text-center">← 左右滑動卡片切換方案 →</p>
+                                        <!-- UPDATE: Task1 — show dual-track swipe instruction -->
+                                        <p class="text-[10px] text-gray-400 font-bold mt-1.5 text-center">
+                                            ⛺ 左滑私藏帳篷 · 右滑遇見小確幸 🎁
+                                        </p>
                                     </div>
                                 </div><!-- end spot-swipe-card -->
 
-                                <!-- Pagination dots -->
-                                <div class="plan-dots" v-if="(spot.altPlans||[]).length > 0">
+                                <!-- UPDATE: Task1 — pagination dots: original + altPlans + gemini slot -->
+                                <div class="plan-dots" v-if="(spot.altPlans||[]).length > 0 || geminiSuggestion[spot.id]">
                                     <div class="plan-dot" :class="getActivePlanIndex(spot.id) === 0 ? 'active' : ''"></div>
                                     <div v-for="(ap, ai) in (spot.altPlans||[])" :key="ai"
                                          class="plan-dot" :class="getActivePlanIndex(spot.id) === ai+1 ? 'active' : ''"></div>
+                                    <!-- Gemini dot — always shown once fetched -->
+                                    <div v-if="geminiSuggestion[spot.id]"
+                                         class="plan-dot gemini-dot"
+                                         :class="getActivePlanIndex(spot.id) === (spot.altPlans||[]).length + 1 ? 'active' : ''"></div>
                                 </div>
 
                             </div><!-- end spot-swipe-wrapper -->
@@ -719,8 +767,11 @@ showAltPlanModal: false,
 altPlanTargetDay: null,
 altPlanTargetIndex: null,
 newAltPlan: {type:'景點', name:'', desc:'', startTime:'', stayTime:'1.5h', transitMethod:'自行開車', transitTime:'', parkingInfo:'', transitSuggestion:'', tags:[], photoTips:''},
-spotActivePlan: {},   // { spotId: planIndex } — 0 = original, 1+ = altPlans[n-1]
+spotActivePlan: {},   // { spotId: planIndex } — 0 = original, 1..n = altPlans, n+1 = gemini
 swipeState: {},       // { spotId: { startX, currentX, isSwiping } }
+// UPDATE: Task1 — Gemini dual-track state (session-only, never persisted to Firebase)
+geminiSuggestion: {}, // { spotId: { placeName, cuteReason } }
+geminiLoading: {},    // { spotId: boolean }
 }},
 computed:{itinerarySpots(){if(!this.activeTrip||!this.activeTrip.itinerary)return[];let s=new Set();Object.values(this.activeTrip.itinerary).forEach(d=>{d.forEach(x=>{if(x.name)s.add(x.name);});});return Array.from(s);},uniqueExpenseDates(){if(!this.privateData.expenses)return[];return [...new Set(this.privateData.expenses.map(e=>e.date||'未填日期'))].sort((a,b)=>{if(a==='未填日期')return 1;if(b==='未填日期')return -1;return a.localeCompare(b);});},filteredExpenses(){if(!this.privateData.expenses)return[];return this.privateData.expenses.filter(e=>{const mC=this.expenseFilter==='全部'||e.mainCat===this.expenseFilter;const mD=this.expenseDateFilter==='全部'||(e.date||'未填日期')===this.expenseDateFilter;return mC&&mD;});},filteredTotalForeign(){return this.filteredExpenses.filter(e=>(e.currency||this.privateData.currency)===this.privateData.currency).reduce((s,e)=>s+(e.inout==='收入'?-Number(e.amount):Number(e.amount)),0);},currencyBreakdown(){const map={};this.filteredExpenses.forEach(e=>{const cur=e.currency||this.privateData.currency;const amt=e.inout==='收入'?-Number(e.amount):Number(e.amount);if(!map[cur])map[cur]={total:0,twdTotal:0};map[cur].total+=amt;const rate=this.privateData.exchangeRates?.[cur]??this.privateData.exchangeRate;map[cur].twdTotal+=amt*rate;});return Object.entries(map).map(([cur,v])=>({currency:cur,total:v.total,twdTotal:v.twdTotal})).sort((a,b)=>b.twdTotal-a.twdTotal);},
 splitTotalTWD(){return this.privateData.expenses.filter(e=>this.splitSelected.includes(e.id)).reduce((s,e)=>{const cur=e.currency||this.privateData.currency;const rate=this.privateData.exchangeRates?.[cur]??this.privateData.exchangeRate;return s+Number(e.amount)*rate;},0);}},
@@ -814,7 +865,12 @@ applySettings(){
 },
 
 editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("幫旅途點點取個新名字：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
-initFirebase(rk){this.tripRef=db.ref('travel_rooms/'+rk);this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});});},
+// UPDATE: Task3 — detach existing Firebase listener before re-attaching to prevent memory leak and duplicate callbacks
+initFirebase(rk){
+    if(this.tripRef){ this.tripRef.off(); } // UPDATE: Task3 — remove previous listener
+    this.tripRef=db.ref('travel_rooms/'+rk);
+    this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});});
+},
 initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
 saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
 
@@ -824,10 +880,20 @@ openTrip(t){
         this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null};
         this.savePrivateData();
     }
+    // UPDATE: Task3 — clear per-session state when entering a new trip to prevent stale data residue
+    this.spotActivePlan = {};
+    this.swipeState = {};
+    this.geminiSuggestion = {};
+    this.geminiLoading = {};
     this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0];
     this.$nextTick(() => { this.applySettings(); });
 },
 goBack(){
+    // UPDATE: Task3 — clear session-only swipe/gemini state on navigation to avoid residue
+    this.spotActivePlan = {};
+    this.swipeState = {};
+    this.geminiSuggestion = {};
+    this.geminiLoading = {};
     this.currentView='home';this.activeTrip=null;
     this.$nextTick(() => { this.applySettings(); });
 },
@@ -902,12 +968,24 @@ importPrivateData(e){
 },
 
 getPrivateSpotData(id){
-    if(!this.privateData.spotNotes) this.privateData.spotNotes={};
-    if(!this.privateData.spotNotes[id]) this.privateData.spotNotes[id]={journal:'', photos:[], isEditing: true, checkedIn:false, rating:0};
-    if(this.privateData.spotNotes[id].isEditing === undefined) this.privateData.spotNotes[id].isEditing = false;
-    if(this.privateData.spotNotes[id].checkedIn === undefined) this.privateData.spotNotes[id].checkedIn = false;
-    if(this.privateData.spotNotes[id].rating === undefined) this.privateData.spotNotes[id].rating = 0;
-    return this.privateData.spotNotes[id];
+    // UPDATE: Task3 — guard against mutating reactive data inside render-time calls
+    // which would cause infinite re-render loops. Only initialize missing keys, never call savePrivateData here.
+    if(!this.privateData.spotNotes) this.privateData.spotNotes = {};
+    const notes = this.privateData.spotNotes;
+    if(!notes[id]){
+        // Use Vue 3 reactive assignment via spread to keep reactivity clean
+        this.privateData.spotNotes = {...notes, [id]: {journal:'', photos:[], isEditing:false, checkedIn:false, rating:0}};
+        return this.privateData.spotNotes[id];
+    }
+    const n = notes[id];
+    // Patch missing fields without triggering a full save (avoids mutation during render)
+    let patched = false;
+    if(n.isEditing === undefined){ n.isEditing = false; patched = true; }
+    if(n.checkedIn === undefined){ n.checkedIn = false; patched = true; }
+    if(n.rating === undefined){ n.rating = 0; patched = true; }
+    // Only persist if we actually patched — deferred to next tick to avoid render-cycle mutation
+    if(patched) this.$nextTick(() => { this.savePrivateData(); });
+    return n;
 },
 toggleJournalEdit(id) {
     const data = this.getPrivateSpotData(id);
@@ -942,83 +1020,102 @@ saveExpense(){if(!this.newExpense.name||!this.newExpense.amount)return alert("�
 },
 
 async processReceipt(base64Image, mediaType) {
+    // UPDATE: Task2 — OCR Debug: hardened prompt + JSON mode + graceful fallback
     this.isOcrLoading = true;
     this.ocrHint = '';
     this.ocrHintError = false;
     try {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
         const safeMediaType = allowedTypes.includes(mediaType) ? mediaType : 'image/jpeg';
-        
+
         const GEMINI_API_KEY = 'AIzaSyABKup52lR3ESvzGd96tdij48ympBmDSlU';
+        // UPDATE: Task2 — use gemini-1.5-flash with responseMimeType to force JSON output
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                // UPDATE: Task2 — system instruction: enforce receipt-extractor role only
+                system_instruction: {
+                    parts: [{
+                        text: 'You are a receipt data extractor. Your ONLY job is to extract structured data from receipt images. You must ALWAYS respond with a single valid JSON object and absolutely nothing else — no markdown, no code fences, no explanation, no apology, no extra text of any kind. If you cannot read a field, set it to null.'
+                    }]
+                },
                 contents: [{
                     parts: [
-                        { text: 'Please analyze this receipt or invoice image carefully. Extract the fields below and reply ONLY with a valid JSON object — no markdown, no code fences, no extra text:\n{"total_amount": <number or null>, "date": "<YYYY-MM-DD or null>", "name": "<short item or store name under 20 chars, in Traditional Chinese if possible, or null>"}\nRules:\n- total_amount: final payable total only (number, no currency symbols)\n- date: if only month/day visible, prepend current year\n- name: most representative product or store name\n- Use null for any field you cannot confidently read' },
+                        {
+                            // UPDATE: Task2 — explicit field schema with new key names (amount/date/item)
+                            text: 'Extract receipt data. Output ONLY this exact JSON structure with no other text:\n{"amount": <final total as number or null>, "date": "<YYYY-MM-DD or null>", "item": "<store name or main item in Traditional Chinese under 20 chars, or null>"}\n\nRules:\n1. amount = the final payable total amount only, as a plain number without currency symbols\n2. date = purchase date; if only month/day shown use current year; format YYYY-MM-DD\n3. item = most representative store name or product name, in Traditional Chinese if possible\n4. Set null for any field that cannot be confidently determined from the image'
+                        },
                         { inlineData: { mimeType: safeMediaType, data: base64Image } }
                     ]
-                }]
+                }],
+                // UPDATE: Task2 — force JSON output via generationConfig to prevent markdown wrapping
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    temperature: 0.1,   // low temperature = more deterministic structured output
+                    maxOutputTokens: 200
+                }
             })
         });
 
         if (!response.ok) {
             const errBody = await response.text();
-            throw new Error(`API ${response.status}: ${errBody}`);
+            throw new Error(`API ${response.status}: ${errBody.slice(0,120)}`);
         }
 
         const data = await response.json();
+
+        // UPDATE: Task2 — safe extraction of response text with null checks
         let rawText = '';
-        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-            rawText = data.candidates[0].content.parts[0].text;
-        } else {
-            throw new Error('AI 回傳格式異常');
+        try {
+            rawText = data.candidates[0].content.parts[0].text || '';
+        } catch(_) {
+            throw new Error('Gemini 回傳結構異常');
         }
-        
-        // Strip possible ```json fences
-        const cleaned = rawText.replace(/```json[\s\S]*?```|```[\s\S]*?```/gi, s => s.replace(/```json|```/gi, '')).replace(/```json|```/gi, '').trim();
+
+        // UPDATE: Task2 — strip any residual markdown fences even with responseMimeType set
+        const cleaned = rawText
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/gi, '')
+            .trim();
+
+        // UPDATE: Task2 — attempt parse; if fail, throw with fallback message
         let parsed;
-        try { parsed = JSON.parse(cleaned); } catch(e) { throw new Error('JSON 解析失敗，模型回傳：' + rawText.slice(0, 80)); }
-
-        let filled = [];
-
-        // total_amount → newExpense.amount（僅在使用者尚未填入時覆蓋）
-        if (parsed.total_amount !== null && parsed.total_amount !== undefined) {
-            if (!this.newExpense.amount) {
-                this.newExpense.amount = String(parsed.total_amount);
-                filled.push('金額');
-            }
-        }
-        // date → newExpense.date（僅在使用者尚未填入時覆蓋）
-        if (parsed.date) {
-            if (!this.newExpense.date) {
-                this.newExpense.date = parsed.date;
-                filled.push('日期');
-            }
-        }
-        // name → newExpense.name（僅在使用者尚未填入時覆蓋）
-        if (parsed.name) {
-            if (!this.newExpense.name) {
-                this.newExpense.name = parsed.name;
-                filled.push('品項');
-            }
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch(parseErr) {
+            // UPDATE: Task2 — cute fallback, do NOT crash
+            this.ocrHint = '小隊長看不懂這張紙，可以手動幫我輸入一下嗎？🥺';
+            this.ocrHintError = true;
+            return; // graceful exit — no throw
         }
 
-        if (filled.length > 0) {
+        // UPDATE: Task2 — map new field names (amount/date/item) to existing newExpense fields
+        const filled = [];
+        if(parsed.amount !== null && parsed.amount !== undefined && !isNaN(Number(parsed.amount))){
+            if(!this.newExpense.amount){ this.newExpense.amount = String(parsed.amount); filled.push('金額'); }
+        }
+        if(parsed.date && typeof parsed.date === 'string' && parsed.date.match(/^\d{4}-\d{2}-\d{2}$/)){
+            if(!this.newExpense.date){ this.newExpense.date = parsed.date; filled.push('日期'); }
+        }
+        if(parsed.item && typeof parsed.item === 'string' && parsed.item.trim()){
+            if(!this.newExpense.name){ this.newExpense.name = parsed.item.trim(); filled.push('品項'); }
+        }
+
+        if(filled.length > 0){
             this.ocrHint = `✅ 點點幫你填好了：${filled.join('、')}！`;
             this.ocrHintError = false;
         } else {
             this.ocrHint = '⚠️ 辨識完成，但欄位都已有內容，沒有覆蓋喔';
             this.ocrHintError = false;
         }
-    } catch (err) {
-        console.error('OCR error:', err);
-        this.ocrHint = '❌ 辨識遇到問題，請試試換張清晰一點的照片，或手動填入';
+
+    } catch(err) {
+        // UPDATE: Task2 — catch-all fallback with cute message
+        console.error('[OCR]', err);
+        this.ocrHint = '小隊長看不懂這張紙，可以手動幫我輸入一下嗎？🥺';
         this.ocrHintError = true;
     } finally {
         this.isOcrLoading = false;
@@ -1169,18 +1266,27 @@ getActivePlanIndex(spotId){
     return this.spotActivePlan[spotId] || 0;
 },
 
-// Get the data object of the currently active plan (original or alt)
+// UPDATE: Task1 — getActivePlanData now handles 3 tracks: original(0), altPlans(1..n), gemini(n+1)
 getActivePlanData(spot){
     const idx = this.getActivePlanIndex(spot.id);
-    if(idx === 0 || !spot.altPlans || !spot.altPlans[idx-1]) return spot;
-    return spot.altPlans[idx-1];
+    const altCount = (spot.altPlans || []).length;
+    if(idx === 0) return spot;
+    if(idx <= altCount) return spot.altPlans[idx - 1];
+    // Gemini track — return a synthetic plan object from geminiSuggestion
+    const gs = this.geminiSuggestion[spot.id];
+    if(gs) return {
+        ...spot, // inherit time/type from original
+        name: gs.placeName,
+        desc: gs.cuteReason,
+        tags: ['✨ Gemini推薦'],
+        photoTips: '', parkingInfo: '', transitSuggestion: ''
+    };
+    return spot; // fallback
 },
 
-// onPlanSwitch: called when plan switches, updates navigation target
+// onPlanSwitch: called when plan switches
 onPlanSwitch(spot){
     const plan = this.getActivePlanData(spot);
-    // Navigation link automatically uses getAltMapsLink which reads active plan
-    // Here we can emit future hooks — e.g. update a shared map marker
     console.log(`[轉向燈] 切換到: ${plan.name}`);
 },
 
@@ -1209,36 +1315,85 @@ openAltPlanModal(day, index){
 
 // Save new alt plan to spot.altPlans array
 saveAltPlan(){
-    if(!this.newAltPlan.name) return alert('請輸入備案地點名稱喔！🌿');
+    if(!this.newAltPlan.name) return alert('請輸入備案地點名稱喔！⛺');
     const spot = this.activeTrip.itinerary[this.altPlanTargetDay][this.altPlanTargetIndex];
     if(!spot.altPlans) spot.altPlans = [];
     spot.altPlans.push({...this.newAltPlan, id: 'alt_' + Date.now()});
     this.saveTripToCloud();
     this.showAltPlanModal = false;
-    // Auto-switch to the newly added plan
     const newIdx = spot.altPlans.length;
-    this.$set ? this.$set(this.spotActivePlan, spot.id, newIdx) : (this.spotActivePlan = {...this.spotActivePlan, [spot.id]: newIdx});
+    this.spotActivePlan = {...this.spotActivePlan, [spot.id]: newIdx};
 },
 
-// Delete an alt plan by index (1-based to match activePlanIndex)
+// Delete an alt plan by index (1-based)
 deleteAltPlan(day, index, planIdx){
-    if(!confirm('確定要移除這個分叉方案嗎？')) return;
+    if(!confirm('確定要移除這個私藏帳篷嗎？')) return;
     const spot = this.activeTrip.itinerary[day][index];
     spot.altPlans.splice(planIdx - 1, 1);
-    // Reset to original plan
     this.spotActivePlan = {...this.spotActivePlan, [spot.id]: 0};
     this.saveTripToCloud();
+},
+
+// UPDATE: Task1 — fetch Gemini suggestion for right-swipe (遇見小確幸 🎁)
+async fetchGeminiSuggestion(spot){
+    if(this.geminiLoading[spot.id]) return; // UPDATE: Task3 — prevent duplicate concurrent calls
+    this.geminiLoading = {...this.geminiLoading, [spot.id]: true};
+    try {
+        const GEMINI_API_KEY = 'AIzaSyABKup52lR3ESvzGd96tdij48ympBmDSlU';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        // Gather context: spot name, trip date for this day, weather from dailyHeaders
+        const dayHeader = this.activeTrip.dailyHeaders?.[this.currentDay] || {};
+        const weather = dayHeader.snow || '天氣不詳';
+        const date = this.getDayDate(this.currentDay) || '今天';
+        const location = spot.name || '這個地點';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                system_instruction: {
+                    parts: [{ text: 'You are a cheerful travel companion for a cute travel app called 旅途點點. Your job is to suggest one nearby alternative attraction based on the given location, time and weather. Always respond in Traditional Chinese. Output ONLY a single valid JSON object, no markdown, no code fences, nothing else.' }]
+                },
+                contents: [{
+                    parts: [{
+                        // UPDATE: Task1 — structured context prompt for Gemini
+                        text: `目前所在地：${location}\n日期：${date}\n天氣狀況：${weather}\n\n請根據以上資訊，推薦一個附近可以臨時轉向去的有趣地點，用可愛溫暖的語氣寫一句推薦理由。\n\n只輸出以下 JSON，不要有任何其他文字：\n{"placeName": "<地點名稱，繁體中文，20字以內>", "cuteReason": "<一句可愛的推薦語，30字以內>"}`
+                    }]
+                }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    temperature: 0.8,
+                    maxOutputTokens: 150
+                }
+            })
+        });
+        if(!response.ok) throw new Error(`Gemini API ${response.status}`);
+        const data = await response.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleaned = raw.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+        const parsed = JSON.parse(cleaned);
+        if(!parsed.placeName || !parsed.cuteReason) throw new Error('格式不完整');
+        // UPDATE: Task3 — store as session-only, never persisted to Firebase
+        this.geminiSuggestion = {...this.geminiSuggestion, [spot.id]: parsed};
+        // Switch to Gemini track index = altPlans.length + 1
+        const geminiIdx = (spot.altPlans||[]).length + 1;
+        this.spotActivePlan = {...this.spotActivePlan, [spot.id]: geminiIdx};
+    } catch(err) {
+        console.error('[Gemini轉向燈]', err);
+        // Graceful fallback: show friendly message and stay on current plan
+        alert('✨ 靈感碎片還在飄... 網路不太好，稍後再試試？🌿');
+    } finally {
+        this.geminiLoading = {...this.geminiLoading, [spot.id]: false};
+    }
 },
 
 // ——— Swipe gesture handlers ———
 _getClientX(e){ return e.touches ? e.touches[0].clientX : e.clientX; },
 
 swipeStart(spotId, e){
-    // Don't start swipe on buttons/inputs
     if(e.target.closest('button,input,textarea,a,label,select')) return;
     this.swipeState = {...this.swipeState, [spotId]: {startX: this._getClientX(e), currentX: this._getClientX(e), isSwiping: true}};
-    const card = this.$refs['swipe_' + spotId];
-    if(card) { card.querySelector('.spot-swipe-card')?.classList.add('is-swiping'); }
+    const wrapper = this.$refs['swipe_' + spotId];
+    if(wrapper) wrapper.querySelector('.spot-swipe-card')?.classList.add('is-swiping');
 },
 
 swipeMove(spotId, e){
@@ -1251,13 +1406,15 @@ swipeMove(spotId, e){
     if(wrapper){
         const card = wrapper.querySelector('.spot-swipe-card');
         if(card) card.style.transform = `translateX(${dx * 0.4}px) rotate(${dx * 0.015}deg)`;
-        // Show hint label when swiping enough
-        if(Math.abs(dx) > 30) wrapper.classList.add('hinting');
-        else wrapper.classList.remove('hinting');
+        // UPDATE: Task1 — show directional hint label based on swipe direction
+        if(dx < -30){ wrapper.classList.add('hinting-left'); wrapper.classList.remove('hinting-right'); }
+        else if(dx > 30){ wrapper.classList.add('hinting-right'); wrapper.classList.remove('hinting-left'); }
+        else { wrapper.classList.remove('hinting-left','hinting-right'); }
     }
 },
 
-swipeEnd(spotId){
+// UPDATE: Task1 — swipeEnd now takes day+index to find spot for Gemini call
+swipeEnd(spotId, day, index){
     const s = this.swipeState[spotId];
     if(!s || !s.isSwiping) return;
     const dx = s.currentX - s.startX;
@@ -1265,28 +1422,51 @@ swipeEnd(spotId){
     if(wrapper){
         const card = wrapper.querySelector('.spot-swipe-card');
         if(card){ card.classList.remove('is-swiping'); card.style.transform = ''; }
-        wrapper.classList.remove('hinting');
+        wrapper.classList.remove('hinting-left','hinting-right');
     }
-    // Find the spot to know total plan count
-    let spot = null;
-    if(this.activeTrip && this.activeTrip.itinerary){
-        for(const day of Object.values(this.activeTrip.itinerary)){
-            const found = day.find(sp => sp.id === spotId);
-            if(found){ spot = found; break; }
+    // UPDATE: Task1 — dual-track routing: left→altPlans, right→Gemini
+    if(Math.abs(dx) > 60){
+        const spot = this.activeTrip?.itinerary?.[day]?.[index];
+        if(!spot){ this.swipeState = {...this.swipeState, [spotId]: {startX:0,currentX:0,isSwiping:false}}; return; }
+        const altCount = (spot.altPlans||[]).length;
+        const geminiIdx = altCount + 1;
+        const current = this.getActivePlanIndex(spotId);
+        if(dx < 0){
+            // LEFT swipe: ⛺ 私藏小帳篷 — cycle through altPlans (ignore Gemini slot)
+            if(altCount > 0){
+                const nextAlt = (current >= 1 && current <= altCount) ? (current % altCount) + 1 : 1;
+                this.spotActivePlan = {...this.spotActivePlan, [spotId]: nextAlt};
+                this.onPlanSwitch(spot);
+            }
+        } else {
+            // RIGHT swipe: 🎁 遇見小確幸 — fetch Gemini or show cached result
+            if(this.geminiSuggestion[spotId]){
+                // Already have a suggestion — just switch to it
+                this.spotActivePlan = {...this.spotActivePlan, [spotId]: geminiIdx};
+                this.onPlanSwitch(spot);
+            } else {
+                // Fetch from Gemini (async, shows loading state)
+                this.fetchGeminiSuggestion(spot);
+            }
         }
-    }
-    if(spot && Math.abs(dx) > 60){
-        const totalPlans = 1 + (spot.altPlans ? spot.altPlans.length : 0);
-        let current = this.getActivePlanIndex(spotId);
-        if(dx < 0) current = (current + 1) % totalPlans;       // swipe left → next plan
-        else current = (current - 1 + totalPlans) % totalPlans; // swipe right → prev plan
-        this.spotActivePlan = {...this.spotActivePlan, [spotId]: current};
-        this.onPlanSwitch(spot);
     }
     this.swipeState = {...this.swipeState, [spotId]: {startX:0, currentX:0, isSwiping:false}};
 },
 
-// Compute card transform style (reactive)
+// UPDATE: Task3 — swipeCancel: called on mouseleave to reset without triggering switch
+swipeCancel(spotId){
+    const s = this.swipeState[spotId];
+    if(!s || !s.isSwiping) return;
+    const wrapper = this.$refs['swipe_' + spotId];
+    if(wrapper){
+        const card = wrapper.querySelector('.spot-swipe-card');
+        if(card){ card.classList.remove('is-swiping'); card.style.transform = ''; }
+        wrapper.classList.remove('hinting-left','hinting-right');
+    }
+    this.swipeState = {...this.swipeState, [spotId]: {startX:0, currentX:0, isSwiping:false}};
+},
+
+// Compute card transform style (reactive, used during drag only)
 getSwipeStyle(spotId){
     const s = this.swipeState[spotId];
     if(!s || !s.isSwiping) return {};
