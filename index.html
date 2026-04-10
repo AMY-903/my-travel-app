@@ -324,8 +324,14 @@
                     </div>
 
                     <div>
-                        <div class="flex justify-between items-center mb-3"><h2 class="text-xl font-bold flex items-center theme-text"><span class="mr-2">📁</span> 全隊共用資料 <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 即時同步</span></h2>
-                            <div class="japanese-card bg-white p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h2 class="text-xl font-bold flex items-center theme-text">
+                                <span class="mr-2">📁</span> 全隊共用資料 
+                                <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 即時同步</span>
+                            </h2>
+                        </div>
+                        
+                        <div class="japanese-card bg-white p-4">
                             <div v-for="(doc, index) in activeTrip.dynamicDocs" :key="doc.id" class="bg-gray-50 p-3 rounded-xl relative mb-3 border">
                                 <button v-if="userRole === 'admin'" @click="removeDoc(index)" class="absolute top-2 right-2 text-red-400 hover:text-red-500 text-xs font-bold">✕</button>
                                 <input v-model="doc.name" @change="saveTripToCloud" :disabled="userRole !== 'admin'" placeholder="標題（例：🏨 飯店訂單）" class="w-full bg-transparent text-sm font-bold outline-none mb-2 disabled:opacity-70">
@@ -335,7 +341,7 @@
                             <button v-if="userRole === 'admin'" @click="addDoc" class="w-full bg-gray-100 text-gray-600 py-3 rounded-xl text-sm font-bold hover:bg-gray-200 transition">＋ 新增共用資料連結</button>
                         </div>
                     </div>
-
+                       
                     <div class="mt-6">
                         <div class="flex justify-between items-center mb-3"><h2 class="text-xl font-bold flex items-center theme-text"><span class="mr-2">🎒</span> 打包清單 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人獨立</span></h2>
                             <div class="flex gap-1">
@@ -501,16 +507,18 @@
 
                 <section v-if="activeTab === '預備'" class="space-y-4">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-xl font-bold theme-text flex items-center"><span class="mr-2">🎲</span> 計畫 B 預備位 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人</span></h2>
+                        <h2 class="text-xl font-bold theme-text flex items-center"><span class="mr-2">🎲</span> Plan B 點點池 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人</span></h2>
                         <button v-if="userRole === 'admin'" @click="showBackupModal = true; newBackupSpot={name:'',area:'',type:'室內',desc:'',tagsInput:''}" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition">＋ 預留點點</button>
                     </div>
 
-                    <div class="japanese-card bg-gradient-to-br from-indigo-50 to-blue-50 p-5 border border-blue-100">
-                        <h3 class="font-bold text-blue-800 text-sm mb-2">✨ 點點救援計畫</h3>
-                        <p class="text-[10px] text-blue-600 mb-3 font-bold">選擇想替換的行程點點，點點會根據天氣和地點，幫你抽出下個驚喜！☁️🎲</p>
+                    <div class="japanese-card bg-white p-5 border-2 theme-border relative overflow-hidden">
+                        <div class="absolute inset-0 theme-bg opacity-5 pointer-events-none"></div>
                         
-                        <div class="mb-3">
-                            <select v-model="selectedTargetSpotId" @change="onTargetSpotChange" class="w-full bg-white rounded-xl p-2.5 text-xs font-bold outline-none border border-blue-200 text-gray-700">
+                        <h3 class="font-bold theme-text text-sm mb-2 relative z-10">✨ 點點救援計畫</h3>
+                        <p class="text-[10px] theme-text mb-3 font-bold opacity-80 relative z-10">選擇想替換的行程點點，點點會根據天氣和地點，幫你抽出下個驚喜！☁️🎲</p>
+                        
+                        <div class="mb-3 relative z-10">
+                            <select v-model="selectedTargetSpotId" @change="onTargetSpotChange" class="w-full bg-white rounded-xl p-2.5 text-xs font-bold outline-none border theme-border text-gray-700">
                                 <option value="">-- 請選擇要救援的行程點點 --</option>
                                 <option v-for="spot in activeTrip.itinerary[currentDay]" :key="spot.id" :value="spot.id">
                                     {{ spot.startTime || '未定' }} | {{ spot.name }}
@@ -518,15 +526,14 @@
                             </select>
                         </div>
 
-                        <div class="flex gap-2 mb-3">
-                            <input v-model="currentAreaInput" type="text" placeholder="目標所在區域 (選填，例: 新宿)" class="flex-1 bg-white rounded-xl p-2 text-xs font-bold outline-none border border-blue-200">
+                        <div class="flex gap-2 mb-3 relative z-10">
+                            <input v-model="currentAreaInput" type="text" placeholder="目標所在區域 (選填，例: 新宿)" class="flex-1 bg-white rounded-xl p-2 text-xs font-bold outline-none border theme-border">
                         </div>
-                        <button @click="pickBackupSpots" :disabled="isPickingBackup" class="w-full bg-blue-500 text-white py-2.5 rounded-xl font-bold shadow-md active:scale-95 transition flex justify-center items-center gap-2">
+                        <button @click="pickBackupSpots" :disabled="isPickingBackup" class="w-full theme-bg text-white py-2.5 rounded-xl font-bold shadow-md active:scale-95 transition flex justify-center items-center gap-2 relative z-10">
                             <span v-if="isPickingBackup" class="animate-spin">🔄</span>
                             {{ isPickingBackup ? '點點努力翻找中...' : '🎲 看看下一個點點' }}
                         </button>
                     </div>
-
                     <div v-if="recommendedBackups.length > 0" class="space-y-3">
                         <h3 class="font-bold text-yellow-600 text-xs flex items-center gap-1 mt-4">🌟 點點為你找到的下一個碎片</h3>
                         <div v-for="spot in recommendedBackups" :key="spot.id" class="japanese-card bg-yellow-50 border-2 border-yellow-300 p-4 relative overflow-hidden">
