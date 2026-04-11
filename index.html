@@ -1115,34 +1115,41 @@ pasteBackupSpots() {
     if (!this.privateData.backupSpots) this.privateData.backupSpots = [];
 
     rows.forEach(row => {
-        if (!row.trim()) return;
-        // 支援 Tab 或 2 個以上空格分隔
-        const cols = row.split(/\t/).map(c => c.trim());
-        let finalCols = cols.length > 1 ? cols : row.split(/\s{2,}/).map(c => c.trim());
+        const trimmedRow = row.trim();
+        if (!trimmedRow) return;
 
-        if (finalCols.length > 0) {
-            let name = finalCols[0] || '';
+        // 分隔欄位 (Tab 或 2個以上空格)
+        let cols = trimmedRow.split('\t').map(c => c.trim());
+        if (cols.length <= 1) {
+            cols = trimmedRow.split(/\s{2,}/).map(c => c.trim());
+        }
+
+        if (cols.length > 0) {
+            let name = cols[0];
             
-            // ✨ 聰明機制 1：跳過標題列 (如果第一欄叫 "名稱" 或 "Name" 就不匯入)
-            if (name === '名稱' || name.toLowerCase() === 'name' || name === '景點名稱') return;
-
-            // ✨ 聰明機制 2：自動偵測網址
-            // 如果第一欄不小心貼成網址，自動往後遞補找名稱
-            let mapUrl = '';
-            finalCols.forEach(c => { if(c.startsWith('http')) mapUrl = c; });
-
-            if (name.startsWith('http')) {
-                name = finalCols[1] || '未命名點點';
+            // 🚨 修正 1：更強大的標題列跳過 (改用 includes 避開隱形字元)
+            if (name.includes('名稱') || name.includes('景點') || name.toLowerCase().includes('name')) {
+                return; 
             }
 
-            if (name && !name.startsWith('http')) {
+            // 🚨 修正 2：更強大的網址偵測 (用正則表達式，不管放哪一欄都抓得到)
+            let mapUrl = '';
+            cols.forEach(col => {
+                const urlMatch = col.match(/https?:\/\/[^\s]+/);
+                if (urlMatch) {
+                    mapUrl = urlMatch[0]; // 成功抓到網址！
+                }
+            });
+
+            // 確保名稱不是網址本人才匯入
+            if (name && !name.match(/https?:\/\//)) {
                 this.privateData.backupSpots.push({
                     id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
                     name: name,
-                    area: (finalCols[1] && !finalCols[1].startsWith('http')) ? finalCols[1] : '',
+                    area: cols[1] || '',
                     type: (row.includes('室外') || row.includes('戶外')) ? '室外' : '室內',
-                    desc: (finalCols[3] && !finalCols[3].startsWith('http')) ? finalCols[3] : '',
-                    mapUrl: mapUrl, // ✨ 新增支援地圖連結欄位
+                    desc: cols[3] || '',
+                    mapUrl: mapUrl, // 存入偵測到的地圖連結
                     tags: []
                 });
                 count++;
@@ -1153,7 +1160,7 @@ pasteBackupSpots() {
     if (count > 0) {
         this.savePrivateData();
         this.pastedBackupData = '';
-       alert(`✨ 預備點點已重新種好！成功匯入了 ${count} 個點點！`);
+        alert(`✨ 預備點點已重新種好！成功匯入了 ${count} 個點點！`);
     } else {
         alert("找不到可匯入的點點 ☁️");
     }
