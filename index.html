@@ -197,7 +197,12 @@
                                 <div class="flex flex-wrap gap-1 mt-2" v-if="spot.tags && spot.tags.length > 0">
                                     <span v-for="tag in spot.tags" :key="tag" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">#{{ tag }}</span>
                                 </div>
-                                <a :href="getMapsLink(currentDay, index)" target="_blank" class="block text-center w-full mt-4 bg-gray-50 border border-gray-100 theme-text py-2 rounded-xl text-xs font-bold transition hover:theme-bg">🗺️ 帶我去這裡！</a>
+                               <a v-if="shouldShowMapButton(spot)" 
+   :href="getMapLink(spot)" 
+   target="_blank" 
+   class="flex-1 bg-white border-2 theme-border theme-text py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition shadow-sm">
+    🗺️ 帶我去這裡！
+</a>
 
                                 <div class="mt-3 border-t border-gray-100 pt-3 flex items-center justify-between">
                                     <button @click="toggleCheckin(spot.id)" :class="getPrivateSpotData(spot.id).checkedIn ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-500'" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition">
@@ -764,6 +769,21 @@ mounted(){
 watch:{trips:{handler(n){if(!this.isUpdatingFromFirebase&&this.tripRef&&this.userRole==='admin'){this.syncStatus='saving';this.tripRef.set(JSON.parse(JSON.stringify(n))).then(()=>{this.syncStatus='online';});}},deep:!0},
 syncStatus(v){if(v==='online'){clearTimeout(this.offlineTimer);this.offlineWarning=!1;}else if(v!=='online'){this.offlineTimer=setTimeout(()=>{this.offlineWarning=!0;},30000);}}},
 methods:{
+// ✨ 1. 把導航按鈕顯示判斷加在這裡
+    shouldShowMapButton(spot) {
+        if (spot.mapUrl) return true;
+        const isFlight = spot.name.includes('航班') || spot.name.includes('CI') || spot.name.includes('BR');
+        const isTransport = spot.type === '交通';
+        return !(isFlight || isTransport);
+    },
+
+    // ✨ 2. 把產生正確 Google 地圖網址的邏輯加在這裡
+    getMapLink(spot) {
+        if (spot.mapUrl) return spot.mapUrl;
+        const query = spot.address || spot.name;
+        // 使用正確的 Google Maps 搜尋語法，才不會跳 404
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    },
 createNewTrip() {
     if (this.userRole !== 'admin') { alert('只有領隊小隊長可以新增旅程喔！'); return; }
     const newTripId = 'trip_' + Date.now();
