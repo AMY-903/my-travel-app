@@ -478,16 +478,19 @@
 
                 <section v-if="activeTab === '確幸'" class="space-y-4">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-xl font-bold theme-text flex items-center"><span class="mr-2">🎟️</span> 點點小確幸 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人</span></h2>
+                        <h2 class="text-xl font-bold theme-text flex items-center">
+                            <span class="mr-2">🎟️</span> 點點小確幸 
+                            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 即時同步</span>
+                        </h2>
                         <button v-if="userRole === 'admin'" @click="openNewCouponModal" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition">＋ 存入確幸</button>
                     </div>
                 
-                    <div v-if="!privateData.coupons || privateData.coupons.length === 0" class="text-center text-gray-400 py-12 text-sm font-bold bg-white rounded-3xl border border-dashed border-gray-200">
-                        還沒遇到專屬的小確幸喔 🎁<br><span class="text-xs mt-1 block opacity-70">快把福利或折價券存進這個百寶袋吧！</span>
+                    <div v-if="!activeTrip.coupons || activeTrip.coupons.length === 0" class="text-center text-gray-400 py-12 text-sm font-bold bg-white rounded-3xl border border-dashed border-gray-200">
+                        全隊還沒有共享的小確幸喔 🎁<br><span class="text-xs mt-1 block opacity-70">快把大家都能用的折價券存進來吧！</span>
                     </div>
                 
                     <div class="grid grid-cols-2 gap-3" v-else>
-                        <div v-for="coupon in privateData.coupons" :key="coupon.id" class="japanese-card bg-white overflow-hidden flex flex-col relative border border-gray-50" :class="{'opacity-50 grayscale-[50%]': getRemainingDays(coupon.expiryDate) === '小碎片已飛走 ☁️'}">
+                        <div v-for="coupon in activeTrip.coupons" :key="coupon.id" class="japanese-card bg-white overflow-hidden flex flex-col relative border border-gray-50 shadow-sm" :class="{'opacity-50 grayscale-[50%]': getRemainingDays(coupon.expiryDate) === '小碎片已飛走 ☁️'}">
                             <button v-if="userRole === 'admin'" @click.stop="deleteCoupon(coupon.id)" class="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white w-6 h-6 rounded-full text-[10px] flex items-center justify-center z-10 hover:bg-red-500 transition">✕</button>
                             <div v-if="coupon.image" class="w-full h-24 bg-gray-100 relative"><img :src="coupon.image" class="w-full h-full object-cover"></div>
                             <div v-else class="w-full h-20 bg-blue-50 flex items-center justify-center text-3xl">🎁</div>
@@ -780,7 +783,9 @@ handleColorPicker(e) { this.changeThemeColor(e.target.value); },
 applySettings(){ const color = this.getCurrentThemeColor(); document.documentElement.style.setProperty('--theme-color', color); document.documentElement.style.setProperty('--theme-font', this.privateData.fontFamily); document.documentElement.style.fontSize = this.privateData.fontSize || '16px'; this.savePrivateData(); },
 editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("幫旅途點點取個新名字：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
 initFirebase(rk){ if(this.tripRef){ this.tripRef.off(); } this.tripRef=db.ref('travel_rooms/'+rk); this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});}); },
-initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.backupSpots)t.backupSpots=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
+initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.coupons) t.coupons = [];if(!t.backupSpots)t.backupSpots=[];if(!t.emergency)
+
+t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
 saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
 openTrip(t){ this.initTripDefaults(t);this.activeTrip=t; if(!this.privateData.tripDocs[t.id]){ this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null}; this.savePrivateData(); } this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0]; this.$nextTick(() => { this.applySettings(); }); },
 goBack(){ this.currentView='home';this.activeTrip=null; this.$nextTick(() => { this.applySettings(); }); },
@@ -970,16 +975,33 @@ getRemainingDays(expiryDate) {
     if (diffDays === 0) return '就是今天 ✨';
     return `剩 ${diffDays} 天`;
 },
-openNewCouponModal() { if (this.userRole !== 'admin') return; this.isEditingCoupon = false; this.newCoupon = { storeName: '', description: '', expiryDate: '', image: null, link: '' }; this.showCouponModal = true; },
+// --- 確幸點點 (雲端同步版) ---
+openNewCouponModal() { 
+    if (this.userRole !== 'admin') return; 
+    this.isEditingCoupon = false; 
+    this.newCoupon = { storeName: '', description: '', expiryDate: '', image: null, link: '' }; 
+    this.showCouponModal = true; 
+},
 saveCoupon() {
     if (!this.newCoupon.storeName) return alert('請填寫店名 / 品牌喔！');
-    if (!this.privateData.coupons) this.privateData.coupons = [];
-    if (this.isEditingCoupon) { const idx = this.privateData.coupons.findIndex(c => c.id === this.editingCouponId); if (idx !== -1) this.privateData.coupons[idx] = { ...this.newCoupon, id: this.editingCouponId }; } 
-    else { this.privateData.coupons.push({ id: 'coupon_' + Date.now(), ...this.newCoupon }); }
-    this.savePrivateData(); this.showCouponModal = false;
+    if (!this.activeTrip.coupons) this.activeTrip.coupons = []; // 存入雲端
+    if (this.isEditingCoupon) { 
+        const idx = this.activeTrip.coupons.findIndex(c => c.id === this.editingCouponId); 
+        if (idx !== -1) this.activeTrip.coupons[idx] = { ...this.newCoupon, id: this.editingCouponId }; 
+    } 
+    else { 
+        this.activeTrip.coupons.push({ id: 'coupon_' + Date.now(), ...this.newCoupon }); 
+    }
+    this.saveTripToCloud(); // 同步至 Firebase
+    this.showCouponModal = false;
 },
-deleteCoupon(id) { if (this.userRole !== 'admin') return; if (confirm('確定要從百寶袋移除這張小確幸嗎？')) { this.privateData.coupons = this.privateData.coupons.filter(c => c.id !== id); this.savePrivateData(); } },
-uploadCouponImage(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { this.newCoupon.image = ev.target.result; }; r.readAsDataURL(f); },
+deleteCoupon(id) { 
+    if (this.userRole !== 'admin') return; 
+    if (confirm('確定要移除這張雲端確幸嗎？全隊都會看不到喔！')) { 
+        this.activeTrip.coupons = this.activeTrip.coupons.filter(c => c.id !== id); 
+        this.saveTripToCloud(); // 同步至 Firebase
+    } 
+},
 
 // --- 預備點點 ---
 importBackups(event) {
