@@ -505,7 +505,10 @@
 
                 <section v-if="activeTab === '預備'" class="space-y-4">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-xl font-bold theme-text flex items-center"><span class="mr-2">🎲</span> 備案點點池 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人</span></h2>
+                        <h2 class="text-xl font-bold theme-text flex items-center">
+                            <span class="mr-2">🎲</span> 備案點點池 
+                            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 即時同步</span>
+                        </h2>
                         <button v-if="userRole === 'admin'" @click="showBackupModal = true; newBackupSpot={name:'',area:'',type:'室內',desc:'',tagsInput:''}" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition">＋ 種下新點點</button>
                     </div>
 
@@ -543,6 +546,7 @@
                             </div>
                             <h4 class="font-bold text-gray-800 text-lg mb-1 relative z-10">{{ spot.name }}</h4>
                             <p class="text-xs text-gray-600 mb-3 font-bold relative z-10">{{ spot.desc }}</p>
+                            <a v-if="spot.mapUrl" :href="spot.mapUrl" target="_blank" class="inline-block bg-white text-blue-500 border border-blue-200 text-[10px] px-2 py-1 rounded-lg font-bold hover:bg-blue-50 transition mb-3 relative z-10 shadow-sm">🗺️ 查看地圖</a>
                             <div class="flex flex-wrap gap-1 mb-3 relative z-10" v-if="spot.tags && spot.tags.length > 0">
                                 <span v-for="t in spot.tags" :key="t" class="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">#{{ t }}</span>
                             </div>
@@ -557,7 +561,6 @@
                         <p class="text-[10px] text-gray-400 font-bold mb-2">直接從試算表複製貼上！順序：名稱 | 區域 | 類型 | 描述</p>
                         <textarea v-model="pastedBackupData" placeholder="例：太宰府天滿宮   太宰府   室外   參拜並吃梅枝餅" class="w-full bg-gray-50 rounded-xl p-3 text-xs outline-none resize-none h-20 border border-gray-200 shadow-inner mb-2 font-bold"></textarea>
                         <button @click="pasteBackupSpots" class="w-full theme-bg text-white py-2 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition">✨ 確認貼上種下點點</button>
-                        
                         <button @click="clearAllBackups" class="w-full bg-red-50 text-red-500 border border-red-100 py-2 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition hover:bg-red-100 mt-2">🗑️ 一鍵清空所有預備點點</button>
                     </div>
 
@@ -569,25 +572,25 @@
                         </label>
                     </div>
                     
-                    <div v-if="!privateData.backupSpots || privateData.backupSpots.length === 0" class="text-center text-gray-400 py-8 text-sm font-bold bg-white rounded-3xl border border-dashed border-gray-200">
+                    <div v-if="!activeTrip.backupSpots || activeTrip.backupSpots.length === 0" class="text-center text-gray-400 py-8 text-sm font-bold bg-white rounded-3xl border border-dashed border-gray-200">
                         點點預備位還空空的～☁️<br><span class="text-xs mt-1 block opacity-70">先把想去卻排不進去的景點偷偷存進來吧！🥺</span>
                     </div>
                     <div class="space-y-3" v-else>
-                        <div v-for="spot in privateData.backupSpots" :key="spot.id" class="japanese-card bg-white p-4 border border-gray-50 relative group">
-    <button v-if="userRole === 'admin'" @click="deleteBackupSpot(spot.id)" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 font-bold text-xs transition">✕</button>
-    <div class="flex items-center gap-1 mb-1">
-        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded" :class="spot.type==='室內'?'bg-blue-50 text-blue-500':'bg-green-50 text-green-500'">{{ spot.type }}</span>
-        <span v-if="spot.area" class="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">📍 {{ spot.area }}</span>
-    </div>
-    <h4 class="font-bold text-gray-800 text-sm mb-1 pr-6">{{ spot.name }}</h4>
-    <p class="text-[10px] text-gray-500 mb-2 font-bold">{{ spot.desc }}</p>
-    
-    <a v-if="spot.mapUrl" :href="spot.mapUrl" target="_blank" class="inline-block bg-blue-50 text-blue-500 text-[9px] px-2 py-1 rounded-lg font-bold hover:bg-blue-100 transition mt-1">🗺️ 查看地圖</a>
-    
-    <div class="flex flex-wrap gap-1" v-if="spot.tags && spot.tags.length > 0">
-        <span v-for="t in spot.tags" :key="t" class="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded font-bold">#{{ t }}</span>
-    </div>
-</div>
+                        <div v-for="spot in activeTrip.backupSpots" :key="spot.id" class="japanese-card bg-white p-4 border border-gray-50 relative group">
+                            <button v-if="userRole === 'admin'" @click="deleteBackupSpot(spot.id)" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 font-bold text-xs transition">✕</button>
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded" :class="spot.type==='室內'?'bg-blue-50 text-blue-500':'bg-green-50 text-green-500'">{{ spot.type }}</span>
+                                <span v-if="spot.area" class="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">📍 {{ spot.area }}</span>
+                            </div>
+                            <h4 class="font-bold text-gray-800 text-sm mb-1 pr-6">{{ spot.name }}</h4>
+                            <p class="text-[10px] text-gray-500 mb-2 font-bold">{{ spot.desc }}</p>
+                            
+                            <a v-if="spot.mapUrl" :href="spot.mapUrl" target="_blank" class="inline-block bg-blue-50 text-blue-500 text-[10px] px-2 py-1 rounded-lg font-bold hover:bg-blue-100 transition mt-1 mb-2 shadow-sm">🗺️ 查看地圖</a>
+                            
+                            <div class="flex flex-wrap gap-1" v-if="spot.tags && spot.tags.length > 0">
+                                <span v-for="t in spot.tags" :key="t" class="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded font-bold">#{{ t }}</span>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -777,7 +780,7 @@ handleColorPicker(e) { this.changeThemeColor(e.target.value); },
 applySettings(){ const color = this.getCurrentThemeColor(); document.documentElement.style.setProperty('--theme-color', color); document.documentElement.style.setProperty('--theme-font', this.privateData.fontFamily); document.documentElement.style.fontSize = this.privateData.fontSize || '16px'; this.savePrivateData(); },
 editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("幫旅途點點取個新名字：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
 initFirebase(rk){ if(this.tripRef){ this.tripRef.off(); } this.tripRef=db.ref('travel_rooms/'+rk); this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});}); },
-initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
+initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.backupSpots)t.backupSpots=[];if(!t.emergency)t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
 saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
 openTrip(t){ this.initTripDefaults(t);this.activeTrip=t; if(!this.privateData.tripDocs[t.id]){ this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null}; this.savePrivateData(); } this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0]; this.$nextTick(() => { this.applySettings(); }); },
 goBack(){ this.currentView='home';this.activeTrip=null; this.$nextTick(() => { this.applySettings(); }); },
@@ -1031,22 +1034,27 @@ getSpotName(id) {
     let spot = this.activeTrip.itinerary[this.currentDay].find(s => s.id === id);
     return spot ? spot.name : '';
 },
+// --- 預備點點 (已升級為雲端同步) ---
 saveBackupSpot() {
     if (!this.newBackupSpot.name) return alert('請填寫預備點點的名稱喔！');
-    if (!this.privateData.backupSpots) this.privateData.backupSpots = [];
+    if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = [];
     let tags = this.newBackupSpot.tagsInput ? this.newBackupSpot.tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
-    this.privateData.backupSpots.push({ id: 'backup_' + Date.now(), name: this.newBackupSpot.name, area: this.newBackupSpot.area, type: this.newBackupSpot.type, desc: this.newBackupSpot.desc, tags: tags });
-    this.savePrivateData(); this.showBackupModal = false;
+    this.activeTrip.backupSpots.push({ id: 'backup_' + Date.now(), name: this.newBackupSpot.name, area: this.newBackupSpot.area, type: this.newBackupSpot.type, desc: this.newBackupSpot.desc, tags: tags });
+    this.saveTripToCloud(); // 改存到雲端
+    this.showBackupModal = false;
 },
 deleteBackupSpot(id) {
     if (this.userRole !== 'admin') return;
-    if (confirm('確定要從預備池移除這個點點嗎？')) { this.privateData.backupSpots = this.privateData.backupSpots.filter(s => s.id !== id); this.savePrivateData(); }
+    if (confirm('確定要從預備池移除這個點點嗎？')) { 
+        this.activeTrip.backupSpots = this.activeTrip.backupSpots.filter(s => s.id !== id); 
+        this.saveTripToCloud(); // 改存到雲端
+    }
 },
 pickBackupSpots() {
     if(!this.selectedTargetSpotId) { alert("請先從下拉選單選擇要救援（替換）的行程點點喔！🥺"); return; }
     this.isPickingBackup = true;
     setTimeout(() => {
-        let pool = [...(this.privateData.backupSpots || [])];
+        let pool = [...(this.activeTrip.backupSpots || [])]; // 改抓雲端備案
         if (pool.length === 0) { alert("點點預備位還是空的喔！快請小隊長新增幾個備案吧 🥺"); this.isPickingBackup = false; return; }
 
         let isBadWeather = false;
@@ -1078,78 +1086,40 @@ pickBackupSpots() {
         this.isPickingBackup = false;
     }, 800); 
 },
-replaceSpotInItinerary(backupSpot) {
-    let dayItinerary = this.activeTrip.itinerary[this.currentDay];
-    let targetIndex = dayItinerary.findIndex(s => s.id === this.selectedTargetSpotId);
-    
-    if(targetIndex !== -1) {
-        let targetSpot = dayItinerary[targetIndex];
-        dayItinerary.splice(targetIndex, 1, {
-            id: 's' + Date.now(),
-            type: targetSpot.type || '景點', 
-            name: backupSpot.name,
-            desc: backupSpot.desc + (backupSpot.area ? ` (${backupSpot.area})` : ''),
-            startTime: targetSpot.startTime,
-            stayTime: targetSpot.stayTime,
-            tags: backupSpot.tags || [],
-            transitMethod: targetSpot.transitMethod || '大眾運輸',
-            transitTime: targetSpot.transitTime || '',
-            parkingInfo: targetSpot.parkingInfo || '',
-            transitSuggestion: targetSpot.transitSuggestion || ''
-        });
-        
-        this.saveTripToCloud();
-        alert(`✅ 點點救援成功！已將「${targetSpot.name}」無縫替換為「${backupSpot.name}」囉！`);
-        this.recommendedBackups = [];
-        this.selectedTargetSpotId = '';
-        this.currentAreaInput = '';
-    } else { alert("找不到目標點點，請再試一次！"); }
-},
-// ✨ 新增的點點快速貼功能
 pasteBackupSpots() {
     if (this.userRole !== 'admin') return;
     if (!this.pastedBackupData.trim()) return alert("先貼上資料才能匯入喔！");
 
     const rows = this.pastedBackupData.split('\n');
     let count = 0;
-    if (!this.privateData.backupSpots) this.privateData.backupSpots = [];
+    if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = []; // 改為雲端
 
     rows.forEach(row => {
-        const trimmedRow = row.trim();
-        if (!trimmedRow) return;
+        const cleanRow = row.replace(/[\uFEFF\u200B]/g, "").trim();
+        if (!cleanRow) return;
 
-        // 分隔欄位 (Tab 或 2個以上空格)
-        let cols = trimmedRow.split('\t').map(c => c.trim());
-        if (cols.length <= 1) {
-            cols = trimmedRow.split(/\s{2,}/).map(c => c.trim());
-        }
+        let cols = cleanRow.split('\t').map(c => c.trim());
+        if (cols.length <= 1) { cols = cleanRow.split(/\s{2,}/).map(c => c.trim()); }
 
         if (cols.length > 0) {
             let name = cols[0];
-            
-            // 🚨 修正 1：更強大的標題列跳過 (改用 includes 避開隱形字元)
-            if (name.includes('名稱') || name.includes('景點') || name.toLowerCase().includes('name')) {
-                return; 
-            }
+            const isHeader = /名稱|景點|name|描述|區域/i.test(name);
+            if (isHeader) return; 
 
-            // 🚨 修正 2：更強大的網址偵測 (用正則表達式，不管放哪一欄都抓得到)
-            let mapUrl = '';
+            let foundMapUrl = '';
             cols.forEach(col => {
-                const urlMatch = col.match(/https?:\/\/[^\s]+/);
-                if (urlMatch) {
-                    mapUrl = urlMatch[0]; // 成功抓到網址！
-                }
+                const match = col.match(/(https?:\/\/[^\s]+)/);
+                if (match) foundMapUrl = match[1];
             });
 
-            // 確保名稱不是網址本人才匯入
             if (name && !name.match(/https?:\/\//)) {
-                this.privateData.backupSpots.push({
+                this.activeTrip.backupSpots.push({
                     id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
                     name: name,
                     area: cols[1] || '',
-                    type: (row.includes('室外') || row.includes('戶外')) ? '室外' : '室內',
+                    type: (cleanRow.includes('室外') || cleanRow.includes('戶外')) ? '室外' : '室內',
                     desc: cols[3] || '',
-                    mapUrl: mapUrl, // 存入偵測到的地圖連結
+                    mapUrl: foundMapUrl,
                     tags: []
                 });
                 count++;
@@ -1158,23 +1128,21 @@ pasteBackupSpots() {
     });
 
     if (count > 0) {
-        this.savePrivateData();
+        this.saveTripToCloud(); // 改存到雲端
         this.pastedBackupData = '';
         alert(`✨ 預備點點已重新種好！成功匯入了 ${count} 個點點！`);
     } else {
-        alert("找不到可匯入的點點 ☁️");
+        alert("找不到可匯入的點點 ☁️ 請檢查格式是否正確");
     }
 },
-// ✨ 一鍵清空預備點點
 clearAllBackups() {
     if (this.userRole !== 'admin') return;
     if (confirm('⚠️ 確定要「清空」所有的預備點點嗎？\n這將無法復原喔！')) {
-        this.privateData.backupSpots = [];
-        this.savePrivateData();
+        this.activeTrip.backupSpots = []; // 清空雲端
+        this.saveTripToCloud(); // 存到雲端
         alert('🗑️ 備案點點池已經全部清空囉！');
     }
 },
-
 }}).mount('#app')
 </script>
 </body>
