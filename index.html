@@ -1131,51 +1131,70 @@ pickBackupSpots() {
 pasteBackupSpots() {
     if (this.userRole !== 'admin') return;
     if (!this.pastedBackupData.trim()) return alert("先貼上資料才能匯入喔！");
+    if (!window.Papa) return alert("載入中，請稍後再試！");
 
-    const rows = this.pastedBackupData.split('\n');
-    let count = 0;
-    if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = []; // 改為雲端
+    window.Papa.parse(this.pastedBackupData, {
+        header: true,
+        skipEmptyLines: 'greedy',
+        complete: (r) => {
+            let count = 0;
+            if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = [];
 
-    rows.forEach(row => {
-        const cleanRow = row.replace(/[\uFEFF\u200B]/g, "").trim();
-        if (!cleanRow) return;
+            r.data.forEach(row => {
+                const keys = Object.keys(row);
+                // 幫助尋找包含特定關鍵字的欄位名稱
+                const fk = (words) => keys.find(x => words.some(y => x.toLowerCase().includes(y)));
 
-        let cols = cleanRow.split('\t').map(c => c.trim());
-        if (cols.length <= 1) { cols = cleanRow.split(/\s{2,}/).map(c => c.trim()); }
+                // 🌟 擴充超級辨識字典：支援名稱、店名、品項、區域等
+                const nk = fk(['名稱', '景點', 'name', '店名', '店家', '品項']);
+                const ak = fk(['區域', '地點', 'area', '城市']);
+                const dk = fk(['描述', '說明', '備註', 'desc']);
+                const tk = fk(['類型', '分類', 'type']);
 
-        if (cols.length > 0) {
-            let name = cols[0];
-            const isHeader = /名稱|景點|name|描述|區域/i.test(name);
-            if (isHeader) return; 
+                if (nk && row[nk] && String(row[nk]).trim() !== '') {
+                    // 自動判斷點點類型 (預設室內，雨天備案用)
+                    let spotType = '室內'; 
+                    if (tk && row[tk]) {
+                        const val = String(row[tk]);
+                        if (val.includes('室外') || val.includes('戶外')) spotType = '室外';
+                        else spotType = val; // 有填寫分類就直接用
+                    } else {
+                        // 沒填分類的話，靠標題猜
+                        if (nk.includes('店名')) spotType = '美食';
+                        else if (nk.includes('品項') || nk.includes('店家')) spotType = '購物';
+                    }
 
-            let foundMapUrl = '';
-            cols.forEach(col => {
-                const match = col.match(/(https?:\/\/[^\s]+)/);
-                if (match) foundMapUrl = match[1];
+                    // 暴力抓取地圖網址
+                    let mapUrl = '';
+                    const possibleUrlKey = keys.find(k => String(row[k]).includes('http'));
+                    if (possibleUrlKey) {
+                        const match = String(row[possibleUrlKey]).match(/(https?:\/\/[^\s]+)/);
+                        if (match) mapUrl = match[1];
+                    }
+
+                    // 把這個點點塞進預備池裡
+                    this.activeTrip.backupSpots.push({
+                        id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                        name: String(row[nk]).trim(),
+                        area: ak && row[ak] ? String(row[ak]).trim() : '',
+                        type: spotType,
+                        desc: dk && row[dk] ? String(row[dk]).trim() : '',
+                        mapUrl: mapUrl,
+                        tags: []
+                    });
+                    count++;
+                }
             });
 
-            if (name && !name.match(/https?:\/\//)) {
-                this.activeTrip.backupSpots.push({
-                    id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                    name: name,
-                    area: cols[1] || '',
-                    type: (cleanRow.includes('室外') || cleanRow.includes('戶外')) ? '室外' : '室內',
-                    desc: cols[3] || '',
-                    mapUrl: foundMapUrl,
-                    tags: []
-                });
-                count++;
+            if (count > 0) {
+                this.saveTripToCloud();
+                this.pastedBackupData = '';
+                alert(`✨ 預備點點已重新種好！成功匯入了 ${count} 個備案點點！`);
+            } else {
+                alert("找不到可匯入的備案點點 ☁️ 請確認表格是否有『名稱 / 店名 / 品項』喔！");
             }
         }
     });
-
-    if (count > 0) {
-        this.saveTripToCloud(); // 改存到雲端
-        this.pastedBackupData = '';
-        alert(`✨ 預備點點已重新種好！成功匯入了 ${count} 個點點！`);
-    } else {
-        alert("找不到可匯入的點點 ☁️ 請檢查格式是否正確");
-    }
 },
 clearAllBackups() {
     if (this.userRole !== 'admin') return;
