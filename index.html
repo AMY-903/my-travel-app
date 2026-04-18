@@ -856,7 +856,40 @@ goBack(){ this.currentView='home';this.activeTrip=null; this.$nextTick(() => { t
 openDateModalForTrip(t){if(this.userRole!=='admin')return;this.editingTripForDate=t;this.tempStartDate=t.startDate||'';this.tempEndDate=t.endDate||'';this.showDateModal=!0;},closeDateModal(){this.showDateModal=!1;this.editingTripForDate=null;},
 saveDateRange(){if(this.userRole!=='admin')return;let tt=this.editingTripForDate||this.activeTrip;tt.startDate=this.tempStartDate;tt.endDate=this.tempEndDate;if(this.tempStartDate&&this.tempEndDate){const diff=Math.ceil((new Date(this.tempEndDate)-new Date(this.tempStartDate))/86400000)+1;if(diff>0&&diff<=30){const nd=[];for(let i=1;i<=diff;i++){nd.push(i);if(!tt.itinerary[i])tt.itinerary[i]=[];if(!tt.dailyHeaders[i])tt.dailyHeaders[i]={wear:'',snow:'',isEditing:!1};}tt.days=nd;}}this.saveTripToCloud();this.showDateModal=!1;},
 getDayDate(d){if(!this.activeTrip.startDate)return '';const s=new Date(this.activeTrip.startDate);s.setDate(s.getDate()+(d-1));return (s.getMonth()+1)+'/'+s.getDate();},
-displayTimeRange(s) {if (!s.startTime) return '未設定時間';let st = String(s.startTime).trim();if (st.includes('-') || st.includes('~')) return st;let h = 0, m = 0;if (st.includes(':')) { let p = st.split(':'); h = parseInt(p[0]) || 0; m = parseInt(p[1]) || 0; } else { return st; }let stay = String(s.stayTime || '1.5h');let match = stay.match(/(\d+)\s*(h|min|分鐘|小時|分|時)/i);if (!match) return st;let val = Number(match[1]);let unit = match[2];let add = (unit.includes('h') || unit.includes('時') || unit.includes('小時')) ? val * 60 : val;let d = new Date(); d.setHours(h, m + add);return `${st} ~ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;},
+displayTimeRange(s) {
+    if (!s.startTime) return '未設定時間';
+    let st = String(s.startTime).trim();
+    if (st.includes('-') || st.includes('~')) return st;
+    
+    let h = 0, m = 0;
+    if (st.includes(':')) { 
+        let p = st.split(':'); 
+        h = parseInt(p[0]) || 0; 
+        m = parseInt(p[1]) || 0; 
+    } else { 
+        return st; 
+    }
+    
+    // 注意這裡：確認你的屬性是 stayTime 還是 duration，我幫你兩個都兼容
+    let stay = String(s.stayTime || s.duration || '1.5h'); 
+    
+    // ✅ 關鍵修正：把 \d+ 改成 [\d.]+，這樣就能抓到小數點了！
+    let match = stay.match(/([\d.]+)\s*(h|min|分鐘|小時|分|時)/i);
+    
+    if (!match) return st;
+    
+    // ✅ 關鍵修正：把 Number() 改成 parseFloat() 來處理小數
+    let val = parseFloat(match[1]); 
+    let unit = match[2];
+    
+    // 將時數轉換成分鐘 (例如 1.5 * 60 = 90 分鐘)
+    let addMinutes = (unit.includes('h') || unit.includes('時') || unit.includes('小時')) ? Math.round(val * 60) : parseInt(val);
+    
+    let d = new Date(); 
+    d.setHours(h, m + addMinutes); 
+    
+    return `${st} ~ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+},
 async autoSyncHeaderWeather(d){let q=this.autoWeatherInput.trim();if(!q){const s=this.activeTrip.itinerary[d];if(!s||s.length===0)return alert('請輸入城市名稱喔！');q=s[0].name;}const tD=new Date(this.activeTrip.startDate);tD.setDate(tD.getDate()+(d-1));if((tD-new Date())/(1000*60*60*24)>14){alert("🌤️ 天氣預報只支援未來 14 天內喔，接近出發日再來查吧！");return;}this.isSyncingWeather=!0;const map={'沖繩':'Naha','那霸':'Naha','美麗海':'Nago','東京':'Tokyo','大阪':'Osaka','京都':'Kyoto','福岡':'Fukuoka','札幌':'Sapporo','名古屋':'Nagoya'};if(map[q])q=map[q];try{const r1=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1`);const d1=await r1.json();if(!d1.results)throw new Error();const lat=d1.results[0].latitude,lon=d1.results[0].longitude;const dS=tD.toISOString().split('T')[0];const r2=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=${dS}&end_date=${dS}&timezone=auto`);const d2=await r2.json();if(d2.error)throw new Error();const maxT=d2.daily.temperature_2m_max[0],minT=d2.daily.temperature_2m_min[0],rainP=d2.daily.precipitation_probability_max[0];this.activeTrip.dailyHeaders[d].wear=maxT<0?"發熱衣+防風+防滑雪靴":maxT<10?"發熱衣+厚外套":maxT<20?"長袖+輕薄外套":maxT<28?"短袖為主":"透氣短袖+防曬";this.activeTrip.dailyHeaders[d].snow=`降雨機率 ${rainP}% (${minT}~${maxT}°C)`;this.saveTripToCloud();}catch(e){alert("查不到天氣，試試看輸入英文城市名喔！");}finally{this.isSyncingWeather=!1;}},
 loadPrivateData(){
     const l=localStorage.getItem('HAMAR_PRIVATE_'+this.safeRoomKey);
