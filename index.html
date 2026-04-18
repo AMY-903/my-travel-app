@@ -487,66 +487,75 @@
         <button v-if="userRole === 'admin'" @click="openNewCouponModal" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm">＋ 存入確幸</button>
     </div>
 
-    <div class="mt-8 pt-6 border-t-2 border-dashed border-gray-200">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold theme-text">🛍️ 雲端購物清單</h2>
-            <button @click="clearMyShoppingList" class="text-[10px] text-red-400 font-bold border border-red-100 px-2 py-1 rounded-lg">🧨 一鍵全刪</button>
-        </div>
-
-        <div class="bg-blue-50 p-4 rounded-3xl mb-4 border border-blue-100">
-            <p class="text-[11px] text-blue-500 font-bold mb-2">🔑 輸入個人同步暗號 (同步手機與電腦清單)</p>
-            <input v-model="shoppingSyncCode" placeholder="例如: Fukuoka2026" class="w-full bg-white p-3 text-sm rounded-2xl outline-none border border-blue-200 font-bold text-center">
-        </div>
-
-        <div v-show="shoppingSyncCode">
-            <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100 mb-6">
-                <p class="text-[11px] text-gray-400 font-bold mb-2">📋 快速匯入 (貼上 Excel 店家與品項)</p>
-                <textarea v-model="pastedShoppingData" placeholder="直接貼上內容..." class="w-full bg-white p-3 text-xs rounded-2xl outline-none border border-gray-200 h-20 mb-2"></textarea>
-                <button @click="importShoppingData" class="w-full theme-bg text-white py-2.5 rounded-2xl text-sm font-bold shadow-md">✨ 快速匯入</button>
+<div class="mt-8 pt-6 border-t-2 border-dashed border-gray-200"> 
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold theme-text">🛍️ 雲端購物清單</h2>
+                <button @click="clearMyShoppingList" class="text-[10px] text-red-400 font-bold border border-red-100 px-2 py-1 rounded-lg">🧨 一鍵全刪</button>
             </div>
 
-            <div class="space-y-4">
-                <div v-for="(items, storeName) in getGroupedShopping()" :key="storeName" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div @click="toggleShopCollapse(storeName)" class="bg-gray-50 px-4 py-2 flex justify-between items-center cursor-pointer hover:bg-gray-100">
-                        <span class="font-bold text-gray-600 text-xs flex items-center gap-1">
-                            {{ collapsedShops.includes(storeName) ? '📁' : '📂' }} 📍 {{ storeName }}
-                        </span>
-                        <span class="text-[9px] bg-gray-200 px-2 py-0.5 rounded-full">{{ items.length }} 件</span>
-                    </div>
+            <div class="bg-blue-50 p-4 rounded-3xl mb-4 border border-blue-100">
+                <p class="text-[11px] text-blue-500 font-bold mb-2">🔑 輸入個人同步暗號 (電腦手機同步用)</p>
+                <input v-model="shoppingSyncCode" placeholder="例如: Micky123" class="w-full bg-white p-3 text-sm rounded-2xl outline-none border border-blue-200 font-bold text-center">
+            </div>
 
-                    <div v-show="!collapsedShops.includes(storeName)" class="divide-y divide-gray-50">
-                        <div v-for="item in items" :key="item.id" class="p-3 flex items-center gap-3" :class="item.bought ? 'opacity-40' : ''">
-                            <div class="w-12 h-12 rounded-lg bg-gray-100 shrink-0 relative flex items-center justify-center">
-                                <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
-                                <span v-else class="text-gray-300">📷</span>
-                                <input type="file" class="absolute inset-0 opacity-0" @change="handleShoppingImage(item.id, $event)">
-                            </div>
-                            <div class="flex-1">
-                                <input v-model="item.name" @change="saveTripToCloud" class="font-bold text-sm w-full bg-transparent outline-none">
-                                <div class="mt-1">
-                                    <select class="text-[10px] bg-gray-100 rounded px-1 py-0.5 text-gray-500" @change="handleStoreChange(item, $event)">
-                                        <option :value="item.shop">{{ item.shop }}</option>
-                                        <option v-for="store in allStoreNames" :key="store" v-if="store !== item.shop" :value="store">{{ store }}</option>
-                                        <option value="NEW_STORE">＋ 新增店家...</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end gap-1">
-                                <button @click="deleteShoppingItem(item.id)" class="text-gray-300 text-[10px]">✕</button>
-                                <button @click="item.bought = !item.bought; saveTripToCloud()" 
-                                        class="px-2 py-1 rounded-lg text-[10px] font-bold"
-                                        :class="item.bought ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
-                                    {{ item.bought ? '已買' : '待買' }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <div v-show="shoppingSyncCode">
+                
+                <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100 mb-6">
+                    <p class="text-[11px] text-gray-400 font-bold mb-2">📋 快速匯入 (直接貼上 Excel 資料)</p>
+                    <textarea v-model="pastedShoppingData" placeholder="直接貼上內容..." class="w-full bg-white p-3 text-xs rounded-2xl outline-none border border-gray-200 h-20 mb-2"></textarea>
+                    <button @click="importShoppingData" class="w-full theme-bg text-white py-2.5 rounded-2xl text-sm font-bold shadow-md">✨ 快速匯入至雲端</button>
                 </div>
-            </div>
-        </div>
-    </div>
-</section>
 
+                <div class="space-y-4">
+                    <div v-for="(items, storeName) in getGroupedShopping()" :key="storeName" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        
+                        <div @click="toggleShopCollapse(storeName)" class="bg-gray-50 px-4 py-2 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors">
+                            <span class="font-bold text-gray-600 text-xs flex items-center gap-1">
+                                {{ collapsedShops.includes(storeName) ? '📁' : '📂' }} 📍 {{ storeName }}
+                            </span>
+                            <span class="text-[9px] bg-gray-200 px-2 py-0.5 rounded-full">{{ items.length }} 件</span>
+                        </div>
+
+                        <div v-show="!collapsedShops.includes(storeName)" class="divide-y divide-gray-50">
+                            <div v-for="item in items" :key="item.id" class="p-3 flex items-center gap-3" :class="item.bought ? 'opacity-40' : ''">
+                                
+                                <div class="w-12 h-12 rounded-lg bg-gray-100 shrink-0 relative overflow-hidden flex items-center justify-center border border-gray-100">
+                                    <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
+                                    <span v-else class="text-gray-300 text-lg">📷</span>
+                                    <input type="file" class="absolute inset-0 opacity-0" @change="handleShoppingImage(item.id, $event)">
+                                </div>
+
+                                <div class="flex-1 min-w-0">
+                                    <input v-model="item.name" @change="saveTripToCloud" class="font-bold text-sm w-full bg-transparent outline-none">
+                                    
+                                    <div class="mt-1">
+                                        <select class="text-[10px] bg-gray-100 border-none rounded px-1 py-0.5 text-gray-500 outline-none" @change="handleStoreChange(item, $event)">
+                                            <option :value="item.shop">{{ item.shop }} (目前)</option>
+                                            <template v-for="store in allStoreNames">
+                                                <option v-if="store.trim() !== (item.shop || '').trim()" :key="store" :value="store">
+                                                    換到 {{ store }}
+                                                </option>
+                                            </template>
+                                            <option value="NEW_STORE">＋ 新增店家...</option>
+                                        </select>
+                                    </div>
+
+                                    <input v-model="item.price" @change="saveTripToCloud" class="text-xs theme-text font-black w-full bg-transparent outline-none mt-1" placeholder="價格">
+                                </div>
+
+                                <div class="flex flex-col items-end gap-1">
+                                    <button @click="deleteShoppingItem(item.id)" class="text-gray-300 text-[10px] p-1">✕</button>
+                                    <button @click="item.bought = !item.bought; saveTripToCloud()" 
+                                            class="px-2 py-1 rounded-lg text-[10px] font-bold transition shadow-sm"
+                                            :class="item.bought ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
+                                        {{ item.bought ? '已買' : '待買' }}
+                                    </button>
+                                </div>
+                                
+                            </div> </div> </div>
+                </div> </div>
+        </div>
+    </section>
                 <section v-if="activeTab === '預備'" class="space-y-4">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-xl font-bold theme-text flex items-center">
@@ -798,9 +807,11 @@ packingTemplates:[
 }},
 computed: {
     // 1. 新增的店家選單
-    allStoreNames() {
+allStoreNames() {
         if (!this.privateData || !this.privateData.shoppingList) return [];
-        const stores = this.privateData.shoppingList.map(item => item.shop || '未分類');
+        // 抓出所有店名，去掉空格，去掉未分類
+        const stores = this.privateData.shoppingList
+            .map(item => (item.shop || '未分類').trim());
         return [...new Set(stores)].filter(s => s !== '未分類');
     },
 
