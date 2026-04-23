@@ -48,6 +48,15 @@
 <body>
 <div id="app" class="max-w-md mx-auto min-h-screen pb-24 relative">
 
+    <!-- AI Loading Overlay -->
+    <div v-if="isGeneratingAI" class="fixed inset-0 modal-overlay z-[9999] flex flex-col items-center justify-center">
+        <div class="text-6xl mb-4 animate-bounce">✨</div>
+        <div class="bg-white px-6 py-3 rounded-full shadow-lg text-sm font-bold theme-text animate-pulse flex items-center gap-2">
+            <svg class="animate-spin h-4 w-4 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            AI 點點努力激盪中...
+        </div>
+    </div>
+
     <div v-if="!isLoggedIn" class="p-6 flex flex-col items-center justify-center min-h-screen pb-32">
         <div class="bg-white p-8 rounded-[40px] shadow-lg w-full max-w-sm text-center border-t-8 theme-border">
             <h1 class="text-xl font-bold theme-text mb-2">旅途點點 🐾</h1>
@@ -198,7 +207,7 @@
                                <a v-if="shouldShowMapButton(spot)" 
    :href="getMapLink(spot)" 
    target="_blank" 
-   class="flex-1 bg-white border-2 theme-border theme-text py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition shadow-sm">
+   class="flex-1 bg-white border-2 theme-border theme-text py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition shadow-sm mt-3">
     🗺️ 帶我去這裡！
 </a>
 
@@ -216,9 +225,14 @@
                                     <div v-if="spot.showJournal" class="mt-3 space-y-3">
                                         <div class="flex justify-between items-center">
                                             <span class="private-tag bg-gray-200 text-gray-600">🔒 只有我能看</span>
-                                            <button @click="toggleJournalEdit(spot.id)" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-bold theme-text transition">
-                                                {{ getPrivateSpotData(spot.id).isEditing ? '✅ 寫好囉！' : '✎ 繼續寫' }}
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button v-if="getPrivateSpotData(spot.id).isEditing" @click="generateAIJournal(spot)" class="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-600 px-2 py-1 rounded font-bold transition border border-purple-200">
+                                                    ✨ AI 幫我寫草稿
+                                                </button>
+                                                <button @click="toggleJournalEdit(spot.id)" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-bold theme-text transition">
+                                                    {{ getPrivateSpotData(spot.id).isEditing ? '✅ 寫好囉！' : '✎ 繼續寫' }}
+                                                </button>
+                                            </div>
                                         </div>
                                         <div v-if="getPrivateSpotData(spot.id).isEditing">
                                             <textarea v-model="getPrivateSpotData(spot.id).journal" @change="savePrivateData" placeholder="偷偷記下只有自己知道的事...🤫" class="w-full bg-white rounded-xl p-3 text-sm outline-none resize-none h-20 border border-gray-200 shadow-inner"></textarea>
@@ -346,6 +360,7 @@
                     <div class="mt-6">
                         <div class="flex justify-between items-center mb-3"><h2 class="text-xl font-bold flex items-center theme-text"><span class="mr-2">🎒</span> 打包清單 <span class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-2">🔒 私人獨立</span></h2>
                             <div class="flex gap-1">
+                                <button @click="generateAIPacking" class="text-xs bg-purple-50 border border-purple-100 text-purple-600 px-2 py-1 rounded font-bold hover:bg-purple-100 shadow-sm">✨ AI 幫我想</button>
                                 <button @click="showPackingTemplateModal=true" class="text-xs bg-indigo-50 border border-indigo-100 text-indigo-500 px-2 py-1 rounded font-bold hover:bg-indigo-100">📋 套用範本</button>
                                 <button @click="addPackingCategory" class="text-xs bg-gray-50 border border-gray-100 theme-text px-2 py-1 rounded font-bold hover:bg-gray-100">＋ 新增分類</button>
                             </div>
@@ -479,90 +494,127 @@
                     </div>
                 </section>
 
-<section v-if="activeTab === '確幸'" class="space-y-4">
-    <div class="flex justify-between items-center mb-2">
-        <h2 class="text-xl font-bold theme-text flex items-center">
-            <span class="mr-2">🎟️</span> 點點小確幸 
-        </h2>
-        <button v-if="userRole === 'admin'" @click="openNewCouponModal" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm">＋ 存入確幸</button>
-    </div>
+                <section v-if="activeTab === '確幸'" class="space-y-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold theme-text flex items-center">
+                            <span class="mr-2">🎟️</span> 點點小確幸 
+                        </h2>
+                        <button v-if="userRole === 'admin'" @click="openNewCouponModal" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm">＋ 存入確幸</button>
+                    </div>
 
-<div class="mt-8 pt-6 border-t-2 border-dashed border-gray-200"> 
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold theme-text">🛍️ 雲端購物清單</h2>
-                <button @click="clearMyShoppingList" class="text-[10px] text-red-400 font-bold border border-red-100 px-2 py-1 rounded-lg">🧨 一鍵全刪</button>
-            </div>
-
-            <div class="bg-blue-50 p-4 rounded-3xl mb-4 border border-blue-100">
-                <p class="text-[11px] text-blue-500 font-bold mb-2">🔑 輸入個人同步暗號 (電腦手機同步用)</p>
-                <input v-model="shoppingSyncCode" placeholder="例如: Micky123" class="w-full bg-white p-3 text-sm rounded-2xl outline-none border border-blue-200 font-bold text-center">
-            </div>
-
-            <div v-show="shoppingSyncCode">
-                
-                <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100 mb-6">
-                    <p class="text-[11px] text-gray-400 font-bold mb-2">📋 快速匯入 (直接貼上 Excel 資料)</p>
-                    <textarea v-model="pastedShoppingData" placeholder="直接貼上內容..." class="w-full bg-white p-3 text-xs rounded-2xl outline-none border border-gray-200 h-20 mb-2"></textarea>
-                    <button @click="importShoppingData" class="w-full theme-bg text-white py-2.5 rounded-2xl text-sm font-bold shadow-md">✨ 快速匯入至雲端</button>
-                </div>
-
-                <div class="space-y-4">
-                    <div v-for="(items, storeName) in getGroupedShopping()" :key="storeName" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        
-                        <div @click="toggleShopCollapse(storeName)" class="bg-gray-50 px-4 py-2 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors">
-                            <span class="font-bold text-gray-600 text-xs flex items-center gap-1">
-                                {{ collapsedShops.includes(storeName) ? '📁' : '📂' }} 📍 {{ storeName }}
-                            </span>
-                            <span class="text-[9px] bg-gray-200 px-2 py-0.5 rounded-full">{{ items.length }} 件</span>
+                    <div class="mt-8 pt-6 border-t-2 border-dashed border-gray-200"> 
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold theme-text">🛍️ 雲端購物清單</h2>
+                            <div class="flex gap-2">
+                                <button @click="openSingleShoppingModal" class="text-[10px] theme-bg text-white font-bold px-2 py-1 rounded-lg">＋ 新增一筆</button>
+                                <button @click="clearMyShoppingList" class="text-[10px] text-red-400 font-bold border border-red-100 px-2 py-1 rounded-lg">🧨 一鍵全刪</button>
+                            </div>
                         </div>
 
-                        <div v-show="!collapsedShops.includes(storeName)" class="divide-y divide-gray-50">
-                            <div v-for="item in items" :key="item.id" class="p-3 flex items-center gap-3" :class="item.bought ? 'opacity-40' : ''">
-                                
-                                <div class="w-12 h-12 rounded-lg bg-gray-100 shrink-0 relative overflow-hidden flex items-center justify-center border border-gray-100">
-                                    <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
-                                    <span v-else class="text-gray-300 text-lg">📷</span>
-                                    <input type="file" class="absolute inset-0 opacity-0" @change="handleShoppingImage(item.id, $event)">
-                                </div>
+                        <div class="bg-blue-50 p-4 rounded-3xl mb-4 border border-blue-100">
+                            <p class="text-[11px] text-blue-500 font-bold mb-2">🔑 輸入個人同步暗號 (電腦手機同步用)</p>
+                            <input v-model="shoppingSyncCode" placeholder="例如: Micky123" class="w-full bg-white p-3 text-sm rounded-2xl outline-none border border-blue-200 font-bold text-center">
+                        </div>
 
-                                <div class="flex-1 min-w-0">
-                                    <input v-model="item.name" @change="saveTripToCloud" class="font-bold text-sm w-full bg-transparent outline-none">
+                        <div v-show="shoppingSyncCode">
+                            
+                            <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100 mb-6">
+                                <p class="text-[11px] text-gray-400 font-bold mb-2">📋 快速匯入 (直接貼上 Excel 資料)</p>
+                                <textarea v-model="pastedShoppingData" placeholder="直接貼上內容..." class="w-full bg-white p-3 text-xs rounded-2xl outline-none border border-gray-200 h-20 mb-2"></textarea>
+                                <button @click="importShoppingData" class="w-full theme-bg text-white py-2.5 rounded-2xl text-sm font-bold shadow-md">✨ 快速匯入至雲端</button>
+                            </div>
+
+                            <div class="space-y-4">
+                                <!-- ✨ 替換：三層巢狀 v-for 結構 (Date -> Area -> Store) -->
+                                <div v-for="(areas, date) in getGroupedShopping()" :key="date" class="mb-6">
                                     
-                                    <div class="mt-1">
-                                        <select class="text-[10px] bg-gray-100 border-none rounded px-1 py-0.5 text-gray-500 outline-none" @change="handleStoreChange(item, $event)">
-                                            <option :value="item.shop">{{ item.shop }} (目前)</option>
-                                            <template v-for="store in allStoreNames">
-                                                <option v-if="store.trim() !== (item.shop || '').trim()" :key="store" :value="store">
-                                                    換到 {{ store }}
-                                                </option>
-                                            </template>
-                                            <option value="NEW_STORE">＋ 新增店家...</option>
-                                        </select>
+                                    <!-- 階層 1：日期 -->
+                                    <div @click="toggleGroup('date_' + date)" class="theme-bg px-4 py-2 rounded-xl font-bold text-white text-sm flex justify-between cursor-pointer mb-2 shadow-sm">
+                                        <span>📅 {{ date }}</span>
+                                        <span>{{ collapsedGroups.includes('date_' + date) ? '🔽' : '🔼' }}</span>
                                     </div>
 
-                                    <input v-model="item.price" @change="saveTripToCloud" class="text-xs theme-text font-black w-full bg-transparent outline-none mt-1" placeholder="價格">
-                                </div>
+                                    <div v-show="!collapsedGroups.includes('date_' + date)" class="pl-2 pr-1 space-y-3 border-l-2 border-gray-200 ml-2 pt-2">
+                                        <div v-for="(stores, area) in areas" :key="area">
+                                            
+                                            <!-- 階層 2：地點 -->
+                                            <div @click="toggleGroup('area_' + date + '_' + area)" class="bg-blue-50 px-3 py-1.5 rounded-lg font-bold text-blue-700 text-xs flex justify-between cursor-pointer mb-2 border border-blue-100">
+                                                <span>📍 {{ area }}</span>
+                                                <span>{{ collapsedGroups.includes('area_' + date + '_' + area) ? '🔽' : '🔼' }}</span>
+                                            </div>
 
-                                <div class="flex flex-col items-end gap-1">
-                                    <button @click="deleteShoppingItem(item.id)" class="text-gray-300 text-[10px] p-1">✕</button>
-                                    <button @click="item.bought = !item.bought; saveTripToCloud()" 
-                                            class="px-2 py-1 rounded-lg text-[10px] font-bold transition shadow-sm"
-                                            :class="item.bought ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
-                                        {{ item.bought ? '已買' : '待買' }}
-                                    </button>
+                                            <div v-show="!collapsedGroups.includes('area_' + date + '_' + area)" class="pl-2 space-y-2 border-l border-blue-100 ml-1 mb-3">
+                                                <div v-for="(items, store) in stores" :key="store" class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2">
+                                                    
+                                                    <!-- 階層 3：店家 -->
+                                                    <div @click="toggleGroup('store_' + date + '_' + area + '_' + store)" class="bg-gray-50 px-3 py-1.5 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-50">
+                                                        <span class="font-bold text-gray-600 text-xs flex items-center gap-1">
+                                                            {{ collapsedGroups.includes('store_' + date + '_' + area + '_' + store) ? '📁' : '📂' }} 🏪 {{ store }}
+                                                        </span>
+                                                        <span class="text-[9px] bg-gray-200 px-2 py-0.5 rounded-full">{{ items.length }} 件</span>
+                                                    </div>
+
+                                                    <div v-show="!collapsedGroups.includes('store_' + date + '_' + area + '_' + store)" class="divide-y divide-gray-50">
+                                                        <!-- 商品項目列表 -->
+                                                        <div v-for="item in items" :key="item.id" class="p-3 flex items-center gap-3" :class="item.bought ? 'opacity-40' : ''">
+                                                            
+                                                            <div class="w-12 h-12 rounded-lg bg-gray-100 shrink-0 relative overflow-hidden flex items-center justify-center border border-gray-100">
+                                                                <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
+                                                                <span v-else class="text-gray-300 text-lg">📷</span>
+                                                                <input type="file" class="absolute inset-0 opacity-0" @change="handleShoppingImage(item.id, $event)">
+                                                            </div>
+
+                                                            <div class="flex-1 min-w-0">
+                                                                <input v-model="item.name" @change="saveTripToCloud" class="font-bold text-sm w-full bg-transparent outline-none">
+                                                                
+                                                                <div class="mt-1">
+                                                                    <!-- 保留快速換店家的選單 -->
+                                                                    <select class="text-[10px] bg-gray-100 border-none rounded px-1 py-0.5 text-gray-500 outline-none" @change="handleStoreChange(item, $event)">
+                                                                        <option :value="item.store">{{ item.store }} (目前)</option>
+                                                                        <template v-for="s in allStoreNames">
+                                                                            <option v-if="s.trim() !== (item.store || '').trim()" :key="s" :value="s">
+                                                                                換到 {{ s }}
+                                                                            </option>
+                                                                        </template>
+                                                                        <option value="NEW_STORE">＋ 新增店家...</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                <input v-model="item.price" @change="saveTripToCloud" type="number" class="text-xs theme-text font-black w-full bg-transparent outline-none mt-1" placeholder="價格 (JPY)">
+                                                                <div class="text-[9px] text-gray-400 font-bold" v-if="item.price">≈ NT$ {{ Math.round(item.price * 0.23).toLocaleString() }}</div>
+                                                            </div>
+
+                                                            <div class="flex flex-col items-end gap-1">
+                                                                <button @click="deleteShoppingItem(item.id)" class="text-gray-300 text-[10px] p-1">✕</button>
+                                                                <button @click="item.bought = !item.bought; saveTripToCloud()" 
+                                                                        class="px-2 py-1 rounded-lg text-[10px] font-bold transition shadow-sm"
+                                                                        :class="item.bought ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
+                                                                    {{ item.bought ? '已買' : '待買' }}
+                                                                </button>
+                                                            </div>
+                                                            
+                                                        </div> 
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                
-                            </div> </div> </div>
-                </div> </div>
-        </div>
-    </section>
+                            </div>
+                        </div> 
+                    </div>
+                </section>
+
                 <section v-if="activeTab === '預備'" class="space-y-4">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-xl font-bold theme-text flex items-center">
                             <span class="mr-2">🎲</span> 備案點點池 
                             <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">☁️ 即時同步</span>
                         </h2>
-                        <button v-if="userRole === 'admin'" @click="showBackupModal = true; newBackupSpot={name:'',area:'',type:'室內',desc:'',tagsInput:''}" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition">＋ 種下新點點</button>
+                        <div class="flex gap-1">
+                            <button v-if="userRole === 'admin'" @click="generateAISpots" class="text-[11px] bg-purple-50 text-purple-600 border border-purple-200 px-3 py-1.5 rounded-full font-bold shadow-sm hover:bg-purple-100 transition">✨ AI 幫我想</button>
+                            <button v-if="userRole === 'admin'" @click="showBackupModal = true; newBackupSpot={name:'',area:'',type:'室內',desc:'',tagsInput:''}" class="text-[11px] theme-bg px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition">＋ 種下新點點</button>
+                        </div>
                     </div>
 
                     <div class="japanese-card bg-white p-5 border-2 theme-border relative overflow-hidden">
@@ -655,6 +707,7 @@
         </div>
     </div>
 
+    <!-- 點點個人化設定 Modal -->
     <div v-if="showSettingsModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl border-t-8 theme-border">
             <h3 class="text-xl font-bold theme-text mb-4">🎨 點點個人化設定 <span v-if="activeTrip" class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded ml-2">本旅程專屬</span></h3>
@@ -668,6 +721,61 @@
             <div class="mb-5"><label class="text-xs font-bold block mb-2 text-gray-500">文字大小</label><select v-model="privateData.fontSize" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200"><option value="14px">小 (Small)</option><option value="16px">中 (Medium・預設)</option><option value="18px">大 (Large)</option><option value="20px">特大 (Extra Large)</option></select></div>
             <div class="mb-6"><label class="text-xs font-bold block mb-2 text-gray-500">字體風格</label><select v-model="privateData.fontFamily" @change="applySettings" class="w-full bg-gray-50 p-3 rounded-xl outline-none font-bold text-gray-700 border border-gray-200"><option value="'Zen Maru Gothic'">圓潤日系 (Zen Maru Gothic)</option><option value="'Noto Sans TC'">清晰現代 (Noto Sans TC)</option><option value="'M PLUS Rounded 1c'">活潑手寫 (M PLUS Rounded)</option></select></div>
             <button @click="showSettingsModal = false" class="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition hover:bg-gray-300">設定完成 ✓</button>
+        </div>
+    </div>
+
+    <!-- 單筆購物新增表單 Modal -->
+    <div v-if="showSingleShoppingModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold theme-text mb-4">🛍️ 新增購物清單</h3>
+            
+            <div class="space-y-3">
+                <!-- ✨ 新增的日期輸入框 -->
+                <div>
+                    <label class="text-[11px] text-gray-500 font-bold block mb-1">預計購買日期</label>
+                    <input v-model="newShoppingItem.date" type="date" class="w-full bg-gray-100 rounded-xl p-3 text-sm outline-none font-bold">
+                </div>
+
+                <!-- 商品名稱 -->
+                <div>
+                    <label class="text-[11px] text-gray-500 font-bold block mb-1">商品名稱 <span class="text-red-400">*</span></label>
+                    <input v-model="newShoppingItem.name" type="text" placeholder="例：DHC 護唇膏" class="w-full bg-gray-100 rounded-xl p-3 text-sm outline-none font-bold">
+                </div>
+
+                <!-- 地點/區域選單 -->
+                <div>
+                    <label class="text-[11px] text-gray-500 font-bold block mb-1">地點 / 區域</label>
+                    <select v-model="newShoppingItem.area" class="w-full bg-gray-100 rounded-xl p-3 text-sm outline-none font-bold">
+                        <option value="">-- 請選擇或新增 --</option>
+                        <option v-for="a in uniqueShoppingAreas" :key="a" :value="a">{{ a }}</option>
+                        <option value="NEW">＋ 新增自定義...</option>
+                    </select>
+                    <input v-if="newShoppingItem.area === 'NEW'" v-model="newShoppingItem.customArea" type="text" placeholder="輸入新的地點 (例: 新宿)" class="w-full bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm outline-none font-bold mt-2 text-blue-700">
+                </div>
+
+                <!-- 店家選單 -->
+                <div>
+                    <label class="text-[11px] text-gray-500 font-bold block mb-1">店家名稱</label>
+                    <select v-model="newShoppingItem.store" class="w-full bg-gray-100 rounded-xl p-3 text-sm outline-none font-bold">
+                        <option value="">-- 請選擇或新增 --</option>
+                        <option v-for="s in uniqueShoppingStores" :key="s" :value="s">{{ s }}</option>
+                        <option value="NEW">＋ 新增自定義...</option>
+                    </select>
+                    <input v-if="newShoppingItem.store === 'NEW'" v-model="newShoppingItem.customStore" type="text" placeholder="輸入新的店家 (例: 唐吉訶德)" class="w-full bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm outline-none font-bold mt-2 text-blue-700">
+                </div>
+
+                <!-- 金額與台幣預覽 -->
+                <div>
+                    <label class="text-[11px] text-gray-500 font-bold block mb-1">預估金額 (日圓)</label>
+                    <input v-model="newShoppingItem.price" type="number" placeholder="輸入日幣金額" class="w-full bg-gray-100 rounded-xl p-3 text-sm outline-none font-bold theme-text">
+                    <p class="text-[10px] text-gray-400 font-bold mt-1 text-right">即時台幣預估 ≈ NT$ <span class="text-sm theme-text">{{ newShoppingTWDPreview.toLocaleString() }}</span></p>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button @click="showSingleShoppingModal = false" class="w-1/2 bg-gray-200 text-gray-600 py-3 rounded-xl font-bold">取消</button>
+                <button @click="saveSingleShoppingItem" class="w-1/2 theme-bg py-3 rounded-xl font-bold shadow-md">儲存 🛒</button>
+            </div>
         </div>
     </div>
     
@@ -787,18 +895,72 @@
 const firebaseConfig = {apiKey:"AIzaSyBsHOCxyulG_-PdPgVC1j3gUDjcz3JG_o4",authDomain:"mytravelapp-137b7.firebaseapp.com",databaseURL:"https://mytravelapp-137b7-default-rtdb.asia-southeast1.firebasedatabase.app/",projectId:"mytravelapp-137b7",storageBucket:"mytravelapp-137b7.firebasestorage.app",messagingSenderId:"962737417227",appId:"1:962737417227:web:0981cb4312f609c39c2b0e",measurementId:"G-9MHPSLYTC5"};
 firebase.initializeApp(firebaseConfig);const db=firebase.database();const {createApp}=Vue;
 
+// ✨ Gemini API Helper Functions
+const apiKey = "";
+
+async function fetchGeminiWithRetry(url, payload, retries = 5) {
+    let delays = [1000, 2000, 4000, 8000, 16000];
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(res => setTimeout(res, delays[i]));
+        }
+    }
+}
+
+async function callGeminiText(prompt, systemPrompt = "", schema = null) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }]
+    };
+    if (systemPrompt) {
+        payload.systemInstruction = { parts: [{ text: systemPrompt }] };
+    }
+    if (schema) {
+        payload.generationConfig = { 
+            responseMimeType: "application/json",
+            responseSchema: schema
+        };
+    }
+    const result = await fetchGeminiWithRetry(url, payload);
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (schema) {
+        try {
+            return JSON.parse(text);
+        } catch(e) {
+            console.error("JSON parse error:", text);
+            return [];
+        }
+    }
+    return text;
+}
+
 createApp({
-data(){return{isLoggedIn:!1,roomInput:'',safeRoomKey:'',pastedShoppingData:'',shoppingSyncCode: '',collapsedShops: [],userRole:'admin',syncStatus:'connecting',loginTitle:'旅途點點 🐾',appMainTitle:localStorage.getItem('HAMAR_APP_TITLE')||'旅途點點 🐾',trips:[],activeTrip:null,currentView:'home',activeTab:'行程',currentDay:1,
+data(){return{isLoggedIn:!1,roomInput:'',safeRoomKey:'',pastedShoppingData:'',shoppingSyncCode: '',
+collapsedGroups: [], // ✨ 替換：從 collapsedShops 改成能記錄多層級的陣列
+isGeneratingAI: false, // ✨ 新增：AI 生成狀態
+userRole:'admin',syncStatus:'connecting',loginTitle:'旅途點點 🐾',appMainTitle:localStorage.getItem('HAMAR_APP_TITLE')||'旅途點點 🐾',trips:[],activeTrip:null,currentView:'home',activeTab:'行程',currentDay:1,
 tabs:['行程','指南','天氣','記帳','確幸','預備'],
 showSpotModal:!1,showDateModal:!1,showSettingsModal:!1,editingTripForDate:null,tempStartDate:'',tempEndDate:'',newSpot:{name:'',desc:'',type:'景點',startTime:'09:00',stayTime:'1.5h',transitTime:'',transitMethod:'自行開車',parkingInfo:'',transitSuggestion:''},isEditingSpot:!1,editSpotIndex:null,themeColors:[{hex:'#6C8EBF'},{hex:'#F4A7B9'},{hex:'#86A697'},{hex:'#333631'},{hex:'#E87A5D'},{hex:'#D9A62E'},{hex:'#9D89B5'},{hex:'#2B5F75'}],
 privateData:{themeColor:'#6C8EBF',tripThemes:{},fontFamily:"'Zen Maru Gothic'",fontSize:'16px',packingCategories:['隨身背包','托運行李','文件'],packing:[],expenseCategories:['飲食','交通','購物','住宿','其他'],expenses:[],currency:'JPY',exchangeRate:0.21,exchangeRates:{JPY:0.21,KRW:0.024,USD:32.5,EUR:35.2,THB:0.9},spotNotes:{},tripDocs:{},coupons:[],backupSpots:[],shoppingList: []},
+
+showSingleShoppingModal: false,
+// ✨ 修改：新增 date 屬性
+newShoppingItem: { name: '', date: '', area: '', customArea: '', store: '', customStore: '', price: '' },
 
 newExpense:{inout:'支出',mainCat:'飲食',subCat:'',name:'',amount:'',payMethod:'現金',bank:'',date:'',currency:''},isEditingExpense:!1,editingExpenseId:null,expenseFilter:'全部',expenseDateFilter:'全部',autoWeatherInput:'',isSyncingWeather:!1,weatherCity:'',pastedCsvData:'',defaultImportTransitMethod:'自行開車',draggedDay:null,draggedIndex:null,dragOverIndex:null,isEditingEmergency:!1,isEditingRules:!1,
 itineraryViewMode:'card',showSplitModal:!1,splitPeople:2,splitSelected:[],showPackingTemplateModal:!1,offlineWarning:!1,offlineTimer:null,
 showCouponModal:!1,isEditingCoupon:!1,editingCouponId:null,newCoupon:{storeName:'',description:'',expiryDate:'',image:null,link:''},
 showBackupModal:!1,newBackupSpot:{name:'',area:'',type:'室內',desc:'',tagsInput:''},currentAreaInput:'',isPickingBackup:!1,recommendedBackups:[],selectedTargetSpotId:'',
-pastedBackupData: '', // ✨ 新增：用於綁定快速貼 textarea 的資料
-quickExpenseItems:[{emoji:'🏪',name:'便利商店',mainCat:'飲食',subCat:'超商'},{emoji:'🍜',name:'午餐',mainCat:'飲食',subCat:'午餐'},{emoji:'🍣',name:'晚餐',mainCat:'飲食',subCat:'晚餐'},{emoji:'☕',name:'咖啡',mainCat:'飲食',subCat:'飲料'},{emoji:'🚇',name:'車資',mainCat:'交通',subCat:'大眾運輸'},{emoji:'🅿️',name:'停車費',mainCat:'交通',subCat:'停車'},{emoji:'🏨',name:'住宿',mainCat:'住宿',subCat:''},{emoji:'🛍️',name:'紀念品',mainCat:'購物',subCat:'紀念品'},{emoji:'💊',name:'藥妝',mainCat:'購物',subCat:'藥妝'}],
+pastedBackupData: '', quickExpenseItems:[{emoji:'🏪',name:'便利商店',mainCat:'飲食',subCat:'超商'},{emoji:'🍜',name:'午餐',mainCat:'飲食',subCat:'午餐'},{emoji:'🍣',name:'晚餐',mainCat:'飲食',subCat:'晚餐'},{emoji:'☕',name:'咖啡',mainCat:'飲食',subCat:'飲料'},{emoji:'🚇',name:'車資',mainCat:'交通',subCat:'大眾運輸'},{emoji:'🅿️',name:'停車費',mainCat:'交通',subCat:'停車'},{emoji:'🏨',name:'住宿',mainCat:'住宿',subCat:''},{emoji:'🛍️',name:'紀念品',mainCat:'購物',subCat:'紀念品'},{emoji:'💊',name:'藥妝',mainCat:'購物',subCat:'藥妝'}],
 packingTemplates:[
     {icon:'🌴',name:'海島度假',desc:'泳衣、防曬、浮潛裝備等',categories:{海灘裝備:['泳衣/泳褲','防曬乳SPF50+','浮潛面鏡','海灘拖鞋','防水袋'],海島衣物:['輕薄短袖x5','短褲x3','防曬外套','涼鞋']}},
     {icon:'❄️',name:'滑雪/雪地',desc:'保暖衣物、防水外套、雪靴等',categories:{保暖層:['發熱衣x3','厚毛衣','羽絨背心','保暖襪x5'],防水外層:['防水雪衣','雪褲','手套','毛帽','圍巾'],雪地裝備:['雪靴','暖暖包x10','護目鏡']}},
@@ -806,28 +968,38 @@ packingTemplates:[
 ],
 }},
 computed: {
-    // 1. 新增的店家選單
-allStoreNames() {
-        if (!this.privateData || !this.privateData.shoppingList) return [];
-        // 抓出所有店名，去掉空格，去掉未分類
-        const stores = this.privateData.shoppingList
-            .map(item => (item.shop || '未分類').trim());
-        return [...new Set(stores)].filter(s => s !== '未分類');
+    uniqueShoppingAreas() {
+        if (!this.activeTrip || !this.activeTrip.shoppingList) return [];
+        const areas = this.activeTrip.shoppingList.map(item => (item.area || '未分類地點').trim());
+        return [...new Set(areas)].filter(a => a !== '未分類地點' && a !== '');
     },
 
-    // 2. 原有的行程點點 (注意這裡是用逗點連接，不要有額外的右大括號)
+    uniqueShoppingStores() {
+        if (!this.activeTrip || !this.activeTrip.shoppingList) return [];
+        const stores = this.activeTrip.shoppingList.map(item => (item.store || '未指定店家').trim());
+        return [...new Set(stores)].filter(s => s !== '未指定店家' && s !== '');
+    },
+
+    newShoppingTWDPreview() {
+        const price = parseFloat(this.newShoppingItem.price) || 0;
+        return Math.round(price * 0.23);
+    },
+
+    allStoreNames() {
+        if (!this.activeTrip || !this.activeTrip.shoppingList) return [];
+        const stores = this.activeTrip.shoppingList.map(item => (item.store || '未指定店家').trim());
+        return [...new Set(stores)].filter(s => s !== '未指定店家');
+    },
+
     itinerarySpots() {
         if (!this.activeTrip || !this.activeTrip.itinerary) return [];
         let s = new Set();
         Object.values(this.activeTrip.itinerary).forEach(d => {
-            d.forEach(x => {
-                if (x.name) s.add(x.name);
-            });
+            d.forEach(x => { if (x.name) s.add(x.name); });
         });
         return Array.from(s);
     },
 
-    // 3. 原有的記帳日期過濾
     uniqueExpenseDates() {
         if (!this.privateData.expenses) return [];
         return [...new Set(this.privateData.expenses.map(e => e.date || '未填日期'))].sort((a, b) => {
@@ -837,7 +1009,6 @@ allStoreNames() {
         });
     },
 
-    // 4. 過濾後的支出清單
     filteredExpenses() {
         if (!this.privateData.expenses) return [];
         return this.privateData.expenses.filter(e => {
@@ -847,12 +1018,10 @@ allStoreNames() {
         });
     },
 
-    // 5. 外幣總計
     filteredTotalForeign() {
         return this.filteredExpenses.filter(e => (e.currency || this.privateData.currency) === this.privateData.currency).reduce((s, e) => s + (e.inout === '收入' ? -Number(e.amount) : Number(e.amount)), 0);
     },
 
-    // 6. 各幣別統計
     currencyBreakdown() {
         const map = {};
         this.filteredExpenses.forEach(e => {
@@ -863,14 +1032,9 @@ allStoreNames() {
             const rate = this.privateData.exchangeRates?.[cur] ?? this.privateData.exchangeRate;
             map[cur].twdTotal += amt * rate;
         });
-        return Object.entries(map).map(([cur, v]) => ({
-            currency: cur,
-            total: v.total,
-            twdTotal: v.twdTotal
-        })).sort((a, b) => b.twdTotal - a.twdTotal);
+        return Object.entries(map).map(([cur, v]) => ({ currency: cur, total: v.total, twdTotal: v.twdTotal })).sort((a, b) => b.twdTotal - a.twdTotal);
     },
 
-    // 7. 拆帳統計
     splitTotalTWD() {
         return this.privateData.expenses.filter(e => this.splitSelected.includes(e.id)).reduce((s, e) => {
             const cur = e.currency || this.privateData.currency;
@@ -878,7 +1042,7 @@ allStoreNames() {
             return s + Number(e.amount) * rate;
         }, 0);
     }
-}, // 這裡才是關閉整個 computed 的地方
+},
 
 mounted(){
     const r=localStorage.getItem('myTravelRoomKey_Raw'),s=localStorage.getItem('myTravelRoomKey_Safe');
@@ -890,47 +1054,75 @@ syncStatus(v){if(v==='online'){clearTimeout(this.offlineTimer);this.offlineWarni
 
 methods:{
 
-// 點擊標題列切換收合狀態
-toggleShopCollapse(storeName) {
-    const index = this.collapsedShops.indexOf(storeName);
+openSingleShoppingModal() {
+    if (!this.shoppingSyncCode.trim()) {
+        return alert("請先設定上方的『個人同步暗號』，才能手動新增清單喔！");
+    }
+    this.newShoppingItem = { name: '', date: '', area: '', customArea: '', store: '', customStore: '', price: '' };
+    this.showSingleShoppingModal = true;
+},
+
+saveSingleShoppingItem() {
+    if (!this.newShoppingItem.name.trim()) return alert('請輸入商品名稱喔！');
+    
+    const finalArea = this.newShoppingItem.area === 'NEW' ? this.newShoppingItem.customArea.trim() : this.newShoppingItem.area;
+    const finalStore = this.newShoppingItem.store === 'NEW' ? this.newShoppingItem.customStore.trim() : this.newShoppingItem.store;
+    
+    if (!this.activeTrip.shoppingList) this.activeTrip.shoppingList = [];
+    
+    this.activeTrip.shoppingList.push({
+        id: 'shop_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        syncCode: this.shoppingSyncCode.trim(),
+        date: this.newShoppingItem.date || '未指定日期', // ✨ 新增：儲存購買日期
+        name: this.newShoppingItem.name.trim(),
+        area: finalArea || '未分類地點', // ✨ 變更預設分類字眼
+        store: finalStore || '未指定店家',
+        price: this.newShoppingItem.price,
+        image: null,
+        bought: false
+    });
+    
+    this.saveTripToCloud();
+    this.showSingleShoppingModal = false;
+},
+
+// ✨ 替換：更新為支援多種 Key 的共用 Toggle 函數
+toggleGroup(groupKey) {
+    const index = this.collapsedGroups.indexOf(groupKey);
     if (index > -1) {
-        this.collapsedShops.splice(index, 1); // 如果在裡面就移除 (展開)
+        this.collapsedGroups.splice(index, 1); 
     } else {
-        this.collapsedShops.push(storeName); // 如果不在裡面就加入 (收合)
+        this.collapsedGroups.push(groupKey); 
     }
 },
-// 當選單選擇「新增店家」時的處理邏輯
+
 handleStoreChange(item, event) {
     const val = event.target.value;
     if (val === 'NEW_STORE') {
         const newName = prompt('請輸入新店家名稱：');
         if (newName && newName.trim()) {
-            item.shop = newName.trim();
+            item.store = newName.trim();
         } else {
-            // 如果取消輸入，就跳回原本的店家名稱
-            event.target.value = item.shop;
+            event.target.value = item.store;
         }
     } else {
-        item.shop = val;
+        item.store = val;
     }
     this.saveTripToCloud();
 },
 
-// ✨ 1. 把導航按鈕顯示判斷加在這裡
-    shouldShowMapButton(spot) {
-        if (spot.mapUrl) return true;
-        const isFlight = spot.name.includes('航班') || spot.name.includes('CI') || spot.name.includes('BR');
-        const isTransport = spot.type === '交通';
-        return !(isFlight || isTransport);
-    },
+shouldShowMapButton(spot) {
+    if (spot.mapUrl) return true;
+    const isFlight = spot.name.includes('航班') || spot.name.includes('CI') || spot.name.includes('BR');
+    const isTransport = spot.type === '交通';
+    return !(isFlight || isTransport);
+},
 
-    // ✨ 2. 把產生正確 Google 地圖網址的邏輯加在這裡
-    getMapLink(spot) {
-        if (spot.mapUrl) return spot.mapUrl;
-        const query = spot.address || spot.name;
-        // 使用正確的 Google Maps 搜尋語法，才不會跳 404
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-    },
+getMapLink(spot) {
+    if (spot.mapUrl) return spot.mapUrl;
+    const query = spot.address || spot.name;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+},
 createNewTrip() {
     if (this.userRole !== 'admin') { alert('只有領隊小隊長可以新增旅程喔！'); return; }
     const newTripId = 'trip_' + Date.now();
@@ -951,7 +1143,6 @@ applySettings(){ const color = this.getCurrentThemeColor(); document.documentEle
 editAppTitle(){if(this.userRole!=='admin')return;const t=prompt("幫旅途點點取個新名字：",this.appMainTitle);if(t){this.appMainTitle=t;localStorage.setItem('HAMAR_APP_TITLE',t);}},
 initFirebase(rk){ if(this.tripRef){ this.tripRef.off(); } this.tripRef=db.ref('travel_rooms/'+rk); this.tripRef.on('value',(snap)=>{const v=snap.val();this.isUpdatingFromFirebase=!0;this.trips=Array.isArray(v)?v:[];if(this.activeTrip){const f=this.trips.find(t=>t.id===this.activeTrip.id);if(f){this.initTripDefaults(f);this.activeTrip=f;}else{this.activeTrip=null;this.currentView='home';}}this.syncStatus='online';this.$nextTick(()=>{this.isUpdatingFromFirebase=!1;});}); },
 initTripDefaults(t){if(!t.itinerary)t.itinerary={};if(!t.days)t.days=[1];if(!t.dailyHeaders)t.dailyHeaders={};if(!t.dynamicDocs)t.dynamicDocs=[];if(!t.coupons) t.coupons = [];if(!t.backupSpots)t.backupSpots=[];if(!t.emergency)
-
 t.emergency={police:'110',ambulance:'119',extra:'駐日代表處請上網查詢'};if(!t.rules)t.rules='入境請填 Visit Japan Web\n免稅購物需出示護照正本\n搭乘電車請將手機靜音';t.days.forEach(d=>{if(!t.itinerary[d])t.itinerary[d]=[];if(!t.dailyHeaders[d])t.dailyHeaders[d]={wear:'',snow:'',isEditing:!1};});},
 saveTripToCloud(){if(this.tripRef&&this.userRole==='admin')this.tripRef.set(JSON.parse(JSON.stringify(this.trips)));},
 openTrip(t){ this.initTripDefaults(t);this.activeTrip=t; if(!this.privateData.tripDocs[t.id]){ this.privateData.tripDocs[t.id]={flights:{outbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null},inbound:{flightNo:'',depAirport:'',depTime:'',arrAirport:'',arrTime:'',bookingRef:'',gate:'',boardingTime:'',eTicketImage:null}},vjwImage:null}; this.savePrivateData(); } this.currentView='detail';this.activeTab='行程';this.currentDay=t.days[0]||1;this.newExpense.date=t.startDate||new Date().toISOString().split('T')[0]; this.$nextTick(() => { this.applySettings(); }); },
@@ -963,34 +1154,14 @@ displayTimeRange(s) {
     if (!s.startTime) return '未設定時間';
     let st = String(s.startTime).trim();
     if (st.includes('-') || st.includes('~')) return st;
-    
     let h = 0, m = 0;
-    if (st.includes(':')) { 
-        let p = st.split(':'); 
-        h = parseInt(p[0]) || 0; 
-        m = parseInt(p[1]) || 0; 
-    } else { 
-        return st; 
-    }
-    
-    // 注意這裡：確認你的屬性是 stayTime 還是 duration，我幫你兩個都兼容
+    if (st.includes(':')) { let p = st.split(':'); h = parseInt(p[0]) || 0; m = parseInt(p[1]) || 0; } else { return st; }
     let stay = String(s.stayTime || s.duration || '1.5h'); 
-    
-    // ✅ 關鍵修正：把 \d+ 改成 [\d.]+，這樣就能抓到小數點了！
     let match = stay.match(/([\d.]+)\s*(h|min|分鐘|小時|分|時)/i);
-    
     if (!match) return st;
-    
-    // ✅ 關鍵修正：把 Number() 改成 parseFloat() 來處理小數
-    let val = parseFloat(match[1]); 
-    let unit = match[2];
-    
-    // 將時數轉換成分鐘 (例如 1.5 * 60 = 90 分鐘)
+    let val = parseFloat(match[1]); let unit = match[2];
     let addMinutes = (unit.includes('h') || unit.includes('時') || unit.includes('小時')) ? Math.round(val * 60) : parseInt(val);
-    
-    let d = new Date(); 
-    d.setHours(h, m + addMinutes); 
-    
+    let d = new Date(); d.setHours(h, m + addMinutes); 
     return `${st} ~ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 },
 async autoSyncHeaderWeather(d){let q=this.autoWeatherInput.trim();if(!q){const s=this.activeTrip.itinerary[d];if(!s||s.length===0)return alert('請輸入城市名稱喔！');q=s[0].name;}const tD=new Date(this.activeTrip.startDate);tD.setDate(tD.getDate()+(d-1));if((tD-new Date())/(1000*60*60*24)>14){alert("🌤️ 天氣預報只支援未來 14 天內喔，接近出發日再來查吧！");return;}this.isSyncingWeather=!0;const map={'沖繩':'Naha','那霸':'Naha','美麗海':'Nago','東京':'Tokyo','大阪':'Osaka','京都':'Kyoto','福岡':'Fukuoka','札幌':'Sapporo','名古屋':'Nagoya'};if(map[q])q=map[q];try{const r1=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1`);const d1=await r1.json();if(!d1.results)throw new Error();const lat=d1.results[0].latitude,lon=d1.results[0].longitude;const dS=tD.toISOString().split('T')[0];const r2=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=${dS}&end_date=${dS}&timezone=auto`);const d2=await r2.json();if(d2.error)throw new Error();const maxT=d2.daily.temperature_2m_max[0],minT=d2.daily.temperature_2m_min[0],rainP=d2.daily.precipitation_probability_max[0];this.activeTrip.dailyHeaders[d].wear=maxT<0?"發熱衣+防風+防滑雪靴":maxT<10?"發熱衣+厚外套":maxT<20?"長袖+輕薄外套":maxT<28?"短袖為主":"透氣短袖+防曬";this.activeTrip.dailyHeaders[d].snow=`降雨機率 ${rainP}% (${minT}~${maxT}°C)`;this.saveTripToCloud();}catch(e){alert("查不到天氣，試試看輸入英文城市名喔！");}finally{this.isSyncingWeather=!1;}},
@@ -1165,7 +1336,6 @@ editTripName(t){const n=prompt("幫這趟旅程取個新名字：",t.name);if(n)
 addDay(){const m=this.activeTrip.days.length>0?Math.max(...this.activeTrip.days):0;const n=m+1;this.activeTrip.days.push(n);this.activeTrip.itinerary[n]=[];this.activeTrip.dailyHeaders[n]={wear:'',snow:'',isEditing:!1};this.currentDay=n;this.saveTripToCloud();},
 removeDay(){if(this.userRole!=='admin')return;const m=Math.max(...this.activeTrip.days);if(m<=1) return alert("旅程至少要保留一天喔！");const hasItinerary = this.activeTrip.itinerary[m] && this.activeTrip.itinerary[m].length > 0;const msg = hasItinerary ? `Day ${m} 裡面還有點點喔！確定要強制刪除嗎？` : `確定要刪除 Day ${m} 嗎？`;if(confirm(msg)){this.activeTrip.days = this.activeTrip.days.filter(d => d !== m);delete this.activeTrip.itinerary[m];delete this.activeTrip.dailyHeaders[m];if(this.currentDay === m) this.currentDay = Math.max(...this.activeTrip.days);this.saveTripToCloud();}},
 
-// --- 確幸點點 ---
 getRemainingDays(expiryDate) {
     if (!expiryDate) return '無期限';
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1175,7 +1345,6 @@ getRemainingDays(expiryDate) {
     if (diffDays === 0) return '就是今天 ✨';
     return `剩 ${diffDays} 天`;
 },
-// --- 確幸點點 (雲端同步版) ---
 openNewCouponModal() { 
     if (this.userRole !== 'admin') return; 
     this.isEditingCoupon = false; 
@@ -1184,7 +1353,7 @@ openNewCouponModal() {
 },
 saveCoupon() {
     if (!this.newCoupon.storeName) return alert('請填寫店名 / 品牌喔！');
-    if (!this.activeTrip.coupons) this.activeTrip.coupons = []; // 存入雲端
+    if (!this.activeTrip.coupons) this.activeTrip.coupons = []; 
     if (this.isEditingCoupon) { 
         const idx = this.activeTrip.coupons.findIndex(c => c.id === this.editingCouponId); 
         if (idx !== -1) this.activeTrip.coupons[idx] = { ...this.newCoupon, id: this.editingCouponId }; 
@@ -1192,120 +1361,124 @@ saveCoupon() {
     else { 
         this.activeTrip.coupons.push({ id: 'coupon_' + Date.now(), ...this.newCoupon }); 
     }
-    this.saveTripToCloud(); // 同步至 Firebase
+    this.saveTripToCloud(); 
     this.showCouponModal = false;
 },
 deleteCoupon(id) { 
     if (this.userRole !== 'admin') return; 
     if (confirm('確定要移除這張雲端確幸嗎？全隊都會看不到喔！')) { 
         this.activeTrip.coupons = this.activeTrip.coupons.filter(c => c.id !== id); 
-        this.saveTripToCloud(); // 同步至 Firebase
+        this.saveTripToCloud(); 
     } 
 },
 
-// 🛍️ 雲端購物清單：個人暗號同步版
-    importShoppingData() {
-        if(!this.shoppingSyncCode.trim()) return alert("請先設定『個人同步暗號』，資料才能同步喔！");
-        if(!this.pastedShoppingData.trim()) return alert("請先貼上資料！");
+// ✨ 替換：更新快速匯入，加入支援「日期」欄位擷取
+importShoppingData() {
+    if(!this.shoppingSyncCode.trim()) return alert("請先設定『個人同步暗號』，資料才能同步喔！");
+    if(!this.pastedShoppingData.trim()) return alert("請先貼上資料！");
 
-        // 如果雲端還沒建立購物清單，先建立它
-        if (!this.activeTrip.shoppingList) this.activeTrip.shoppingList = [];
+    if (!this.activeTrip.shoppingList) this.activeTrip.shoppingList = [];
 
-        const rows = this.pastedShoppingData.trim().split('\n');
-        const delimiter = rows[0].includes('\t') ? '\t' : (rows[0].includes(',') ? ',' : ' ');
-        const headers = rows[0].split(delimiter).map(h => h.trim().toLowerCase());
-        const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
-        
-        const nameIdx = findIndex(['品項', '名稱', '商品', 'item', '代買']);
-        const storeIdx = findIndex(['店家', '店名', '品牌', 'store']);
-        const priceIdx = findIndex(['價格', '金額', 'price']);
+    const rows = this.pastedShoppingData.trim().split('\n');
+    const delimiter = rows[0].includes('\t') ? '\t' : (rows[0].includes(',') ? ',' : ' ');
+    const headers = rows[0].split(delimiter).map(h => h.trim().toLowerCase());
+    const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+    
+    const nameIdx = findIndex(['品項', '名稱', '商品', 'item', '代買']);
+    const dateIdx = findIndex(['日期', 'date', '時間', '預計購買']);
+    const storeIdx = findIndex(['店家', '店名', '品牌', 'store']);
+    const priceIdx = findIndex(['價格', '金額', 'price']);
 
-        if (nameIdx === -1) return alert("找不到『品項』欄位，請檢查標題。");
+    if (nameIdx === -1) return alert("找不到『品項』欄位，請檢查標題。");
 
-        let count = 0;
-        for (let i = 1; i < rows.length; i++) {
-            const cols = rows[i].split(delimiter).map(c => c.trim());
-            if (cols[nameIdx]) {
-                this.activeTrip.shoppingList.push({
-                    id: 'shop_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                    syncCode: this.shoppingSyncCode.trim(), // 👈 標記這筆資料屬於誰
-                    name: cols[nameIdx],
-                    store: storeIdx !== -1 && cols[storeIdx] ? cols[storeIdx] : '未指定店家',
-                    price: priceIdx !== -1 && cols[priceIdx] ? cols[priceIdx] : '',
-                    image: null,
-                    bought: false
-                });
-                count++;
+    let count = 0;
+    for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].split(delimiter).map(c => c.trim());
+        if (cols[nameIdx]) {
+            this.activeTrip.shoppingList.push({
+                id: 'shop_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                syncCode: this.shoppingSyncCode.trim(), 
+                date: dateIdx !== -1 && cols[dateIdx] ? cols[dateIdx] : '未指定日期',
+                name: cols[nameIdx],
+                area: '未分類地點', 
+                store: storeIdx !== -1 && cols[storeIdx] ? cols[storeIdx] : '未指定店家',
+                price: priceIdx !== -1 && cols[priceIdx] ? cols[priceIdx] : '',
+                image: null,
+                bought: false
+            });
+            count++;
+        }
+    }
+
+    if (count > 0) {
+        this.pastedShoppingData = '';
+        this.saveTripToCloud(); 
+        alert(`✨ 成功匯入 ${count} 筆清單！手機重新整理就能看到囉！`);
+    }
+},
+
+// ✨ 替換：重構為三層級（Date -> Area -> Store）的過濾函數
+getGroupedShopping() {
+    if (!this.activeTrip || !this.activeTrip.shoppingList) return {};
+    
+    const myItems = this.activeTrip.shoppingList.filter(i => i.syncCode === (this.shoppingSyncCode || '').trim());
+    
+    const grouped = {};
+    myItems.forEach(item => {
+        const d = item.date || '未指定日期';
+        const a = item.area || '未分類地點';
+        const s = item.store || '未指定店家';
+
+        if (!grouped[d]) grouped[d] = {};
+        if (!grouped[d][a]) grouped[d][a] = {};
+        if (!grouped[d][a][s]) grouped[d][a][s] = [];
+
+        grouped[d][a][s].push(item);
+    });
+    
+    return grouped;
+},
+
+handleShoppingImage(id, event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 500;
+            let width = img.width, height = img.height;
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            const item = this.activeTrip.shoppingList.find(i => i.id === id);
+            if (item) { 
+                item.image = canvas.toDataURL('image/jpeg', 0.7); 
+                this.saveTripToCloud(); 
             }
-        }
-
-        if (count > 0) {
-            this.pastedShoppingData = '';
-            this.saveTripToCloud(); // ☁️ 同步到雲端
-            alert(`✨ 成功匯入 ${count} 筆清單！手機重新整理就能看到囉！`);
-        }
-    },
-
-    // 🧠 依照暗號過濾並分組店家的計算邏輯
-// 在 methods 裡面找到這個功能並替換
-
-    getGroupedShopping() {
-        // 🛡️ 保護機制：如果雲端資料還沒讀到，先回傳空的，不要讓網頁卡死
-        if (!this.activeTrip || !this.activeTrip.shoppingList) return {};
-        
-        const myItems = this.activeTrip.shoppingList.filter(i => i.syncCode === (this.shoppingSyncCode || '').trim());
-        
-        return myItems.reduce((groups, item) => {
-            const store = item.store || '未指定店家';
-            if (!groups[store]) groups[store] = [];
-            groups[store].push(item);
-            return groups;
-        }, {});
-    },
-
-    handleShoppingImage(id, event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 500;
-                let width = img.width, height = img.height;
-                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                canvas.width = width; canvas.height = height;
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                const item = this.activeTrip.shoppingList.find(i => i.id === id);
-                if (item) { 
-                    item.image = canvas.toDataURL('image/jpeg', 0.7); 
-                    this.saveTripToCloud(); 
-                }
-            };
-            img.src = e.target.result;
         };
-        reader.readAsDataURL(file);
-    },
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+},
 
-    deleteShoppingItem(id) {
-        if(confirm('要刪除這筆項目嗎？')) {
-            this.activeTrip.shoppingList = this.activeTrip.shoppingList.filter(i => i.id !== id);
-            this.saveTripToCloud();
-        }
-    },
+deleteShoppingItem(id) {
+    if(confirm('要刪除這筆項目嗎？')) {
+        this.activeTrip.shoppingList = this.activeTrip.shoppingList.filter(i => i.id !== id);
+        this.saveTripToCloud();
+    }
+},
 
-    // 🧨 一鍵全刪功能
-    clearMyShoppingList() {
-        if (!this.shoppingSyncCode.trim()) return alert("請先輸入暗號才能刪除喔！");
-        if(confirm(`⚠️ 確定要刪除暗號為『${this.shoppingSyncCode}』的所有清單嗎？`)) {
-            // 只刪除符合暗號的項目，保留別人的
-            this.activeTrip.shoppingList = this.activeTrip.shoppingList.filter(i => i.syncCode !== this.shoppingSyncCode.trim());
-            this.saveTripToCloud();
-            alert("已清空！");
-        }
-    },
+clearMyShoppingList() {
+    if (!this.shoppingSyncCode.trim()) return alert("請先輸入暗號才能刪除喔！");
+    if(confirm(`⚠️ 確定要刪除暗號為『${this.shoppingSyncCode}』的所有清單嗎？`)) {
+        this.activeTrip.shoppingList = this.activeTrip.shoppingList.filter(i => i.syncCode !== this.shoppingSyncCode.trim());
+        this.saveTripToCloud();
+        alert("已清空！");
+    }
+},
 
-// --- 預備點點 ---
 importBackups(event) {
     if (this.userRole !== 'admin') return;
     const file = event.target.files[0];
@@ -1358,27 +1531,26 @@ getSpotName(id) {
     let spot = this.activeTrip.itinerary[this.currentDay].find(s => s.id === id);
     return spot ? spot.name : '';
 },
-// --- 預備點點 (已升級為雲端同步) ---
 saveBackupSpot() {
     if (!this.newBackupSpot.name) return alert('請填寫預備點點的名稱喔！');
     if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = [];
     let tags = this.newBackupSpot.tagsInput ? this.newBackupSpot.tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
     this.activeTrip.backupSpots.push({ id: 'backup_' + Date.now(), name: this.newBackupSpot.name, area: this.newBackupSpot.area, type: this.newBackupSpot.type, desc: this.newBackupSpot.desc, tags: tags });
-    this.saveTripToCloud(); // 改存到雲端
+    this.saveTripToCloud(); 
     this.showBackupModal = false;
 },
 deleteBackupSpot(id) {
     if (this.userRole !== 'admin') return;
     if (confirm('確定要從預備池移除這個點點嗎？')) { 
         this.activeTrip.backupSpots = this.activeTrip.backupSpots.filter(s => s.id !== id); 
-        this.saveTripToCloud(); // 改存到雲端
+        this.saveTripToCloud(); 
     }
 },
 pickBackupSpots() {
     if(!this.selectedTargetSpotId) { alert("請先從下拉選單選擇要救援（替換）的行程點點喔！🥺"); return; }
     this.isPickingBackup = true;
     setTimeout(() => {
-        let pool = [...(this.activeTrip.backupSpots || [])]; // 改抓雲端備案
+        let pool = [...(this.activeTrip.backupSpots || [])]; 
         if (pool.length === 0) { alert("點點預備位還是空的喔！快請小隊長新增幾個備案吧 🥺"); this.isPickingBackup = false; return; }
 
         let isBadWeather = false;
@@ -1424,29 +1596,24 @@ pasteBackupSpots() {
 
             r.data.forEach(row => {
                 const keys = Object.keys(row);
-                // 幫助尋找包含特定關鍵字的欄位名稱
                 const fk = (words) => keys.find(x => words.some(y => x.toLowerCase().includes(y)));
 
-                // 🌟 擴充超級辨識字典：支援名稱、店名、品項、區域等
                 const nk = fk(['名稱', '景點', 'name', '店名', '店家', '品項']);
                 const ak = fk(['區域', '地點', 'area', '城市']);
                 const dk = fk(['描述', '說明', '備註', 'desc']);
                 const tk = fk(['類型', '分類', 'type']);
 
                 if (nk && row[nk] && String(row[nk]).trim() !== '') {
-                    // 自動判斷點點類型 (預設室內，雨天備案用)
                     let spotType = '室內'; 
                     if (tk && row[tk]) {
                         const val = String(row[tk]);
                         if (val.includes('室外') || val.includes('戶外')) spotType = '室外';
-                        else spotType = val; // 有填寫分類就直接用
+                        else spotType = val; 
                     } else {
-                        // 沒填分類的話，靠標題猜
                         if (nk.includes('店名')) spotType = '美食';
                         else if (nk.includes('品項') || nk.includes('店家')) spotType = '購物';
                     }
 
-                    // 暴力抓取地圖網址
                     let mapUrl = '';
                     const possibleUrlKey = keys.find(k => String(row[k]).includes('http'));
                     if (possibleUrlKey) {
@@ -1454,7 +1621,6 @@ pasteBackupSpots() {
                         if (match) mapUrl = match[1];
                     }
 
-                    // 把這個點點塞進預備池裡
                     this.activeTrip.backupSpots.push({
                         id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
                         name: String(row[nk]).trim(),
@@ -1481,11 +1647,117 @@ pasteBackupSpots() {
 clearAllBackups() {
     if (this.userRole !== 'admin') return;
     if (confirm('⚠️ 確定要「清空」所有的預備點點嗎？\n這將無法復原喔！')) {
-        this.activeTrip.backupSpots = []; // 清空雲端
-        this.saveTripToCloud(); // 存到雲端
+        this.activeTrip.backupSpots = []; 
+        this.saveTripToCloud(); 
         alert('🗑️ 備案點點池已經全部清空囉！');
     }
 },
+
+// ✨ 整合 Gemini API 的創新功能區
+
+async generateAIJournal(spot) {
+    this.isGeneratingAI = true;
+    try {
+        const prompt = `寫一段大約 50 字的可愛旅行日記，關於我剛剛參觀了「${spot.name}」的感想，語氣要非常輕鬆活潑，帶點可愛的 Emoji。你可以自由發揮想像一些好玩的心情，結尾要可愛。請只返回日記的純文字內容。`;
+        const text = await callGeminiText(prompt);
+        const data = this.getPrivateSpotData(spot.id);
+        // 如果已經有內容，就換行接在後面
+        data.journal = (data.journal ? data.journal + '\n\n' : '') + text;
+        data.isEditing = true;
+        this.savePrivateData();
+    } catch (e) {
+        alert('✨ 糟糕！AI 點點腦袋打結了，請稍後再試試看！');
+    } finally {
+        this.isGeneratingAI = false;
+    }
+},
+
+async generateAIPacking() {
+    const dest = prompt("✨ 讓 AI 幫你想該帶什麼！\n請問你要去哪裡旅行呢？（例如：東京 5 天、冰島追極光）");
+    if (!dest) return;
+    this.isGeneratingAI = true;
+    try {
+        const prompt = `我即將去「${dest}」旅行。請幫我分析當地的氣候與需求，並推薦 3 個最重要的打包分類，每個分類提供 4 個不可或缺的必備物品。`;
+        const sysPrompt = `你是專業的旅遊打包規劃師。請以繁體中文回應。`;
+        const schema = {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    category: { type: "STRING" },
+                    items: { type: "ARRAY", items: { type: "STRING" } }
+                }
+            }
+        };
+        const result = await callGeminiText(prompt, sysPrompt, schema);
+        
+        let added = 0;
+        result.forEach(catObj => {
+            if(!this.privateData.packingCategories.includes(catObj.category)) {
+                this.privateData.packingCategories.push(catObj.category);
+            }
+            catObj.items.forEach(itemName => {
+                const exists = this.privateData.packing.some(p => p.category === catObj.category && p.name === itemName);
+                if (!exists) {
+                    this.privateData.packing.push({id: Date.now() + Math.random(), category: catObj.category, name: itemName, checked: false});
+                    added++;
+                }
+            });
+        });
+        this.savePrivateData();
+        alert(`✨ 太棒了！AI 已經為你量身打造，新增了 ${added} 個專屬的打包項目！`);
+    } catch (e) {
+        alert('✨ 糟糕！AI 點點有點累了，請稍後再試試看！');
+    } finally {
+        this.isGeneratingAI = false;
+    }
+},
+
+async generateAISpots() {
+    if (this.userRole !== 'admin') return;
+    const dest = prompt("✨ 讓 AI 幫你找秘境景點塞進備案池！\n你想找哪個城市或區域的景點？有特別偏好嗎？\n(例如：京都 嵐山，想找有冷氣的室內景點、或者必吃甜點)");
+    if (!dest) return;
+    this.isGeneratingAI = true;
+    try {
+        const prompt = `我正在規劃行程，請推薦 3 個符合「${dest}」條件的優質旅遊地點（包含景點或美食）。`;
+        const sysPrompt = `你是一個在地的旅遊達人。請以繁體中文回應。描述要非常生動吸引人。`;
+        const schema = {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    name: { type: "STRING" },
+                    type: { type: "STRING", description: "必須是這三種之一：室內、室外、美食" },
+                    desc: { type: "STRING", description: "15字以內的超吸引人簡介" },
+                    tags: { type: "ARRAY", items: { type: "STRING" }, description: "2~3個標籤，例如：親子, 文青, 必吃" }
+                }
+            }
+        };
+        const result = await callGeminiText(prompt, sysPrompt, schema);
+        
+        if (!this.activeTrip.backupSpots) this.activeTrip.backupSpots = [];
+        result.forEach(spot => {
+            // 嘗試從使用者輸入中擷取前綴當作地區
+            const areaStr = dest.split(' ')[0].substring(0, 5);
+            this.activeTrip.backupSpots.push({
+                id: 'backup_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                name: spot.name,
+                area: areaStr, 
+                type: spot.type || '室外',
+                desc: spot.desc || 'AI 推薦的好去處！',
+                tags: spot.tags || ['AI推薦'],
+                mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.name)}`
+            });
+        });
+        this.saveTripToCloud();
+        alert(`✨ 尋寶成功！AI 已經為你找到了 ${result.length} 個超棒的備案點點！`);
+    } catch (e) {
+        alert('✨ 糟糕！AI 點點迷路了，請稍後再試試看！');
+    } finally {
+        this.isGeneratingAI = false;
+    }
+}
+
 }}).mount('#app')
 </script>
 </body>
